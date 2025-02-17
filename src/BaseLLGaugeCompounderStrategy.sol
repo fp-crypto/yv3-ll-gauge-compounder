@@ -88,6 +88,36 @@ abstract contract BaseLLGaugeCompounderStrategy is
         dYFIHelper.flashloanLogic(userData);
     }
 
+    /// @notice Sets whether to disable automatic conversion of dYFI rewards to WETH
+    /// @param _dontDumpDYfi New value for dontDumpDYfi flag
+    /// @dev Can only be called by governance
+    function setDontDumpDYfi(bool _dontDumpDYfi) external onlyGovernance {
+        dontDumpDYfi = _dontDumpDYfi;
+    }
+
+    /// @notice Sets whether to disable automatic swapping of WETH to strategy asset
+    /// @param _dontSwapWeth New value for dontSwapWeth flag
+    /// @dev Can only be called by governance
+    function setDontSwapWeth(bool _dontSwapWeth) external onlyGovernance {
+        dontSwapWeth = _dontSwapWeth;
+    }
+
+    /// @notice Sets whether to use auctions for token swaps
+    /// @param _useAuctions New value for useAuctions flag
+    /// @dev Can only be called by governance
+    function setUseAuctions(bool _useAuctions) external onlyGovernance {
+        useAuctions = _useAuctions;
+    }
+
+    /// @notice Sets the Uniswap V3 fee tier for WETH to asset swaps
+    /// @dev Can only be called by management
+    /// @param _wethToAssetSwapFee The fee tier to use (in hundredths of a bip)
+    function setWethToAssetSwapFee(
+        uint24 _wethToAssetSwapFee
+    ) external onlyManagement {
+        _setUniFees(WETH, address(asset), _wethToAssetSwapFee);
+    }
+
     /// @notice Allows the contract to receive ETH
     /// @dev Required for WETH unwrapping
     receive() external payable {}
