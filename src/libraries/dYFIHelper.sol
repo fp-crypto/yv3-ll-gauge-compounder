@@ -15,8 +15,8 @@ library dYFIHelper {
     address private constant YFI = 0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e;
     address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-    address public constant BALANCER_VAULT =
-        0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+    IBalancerVault public constant BALANCER_VAULT =
+        IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     ICurvePool public constant CURVE_DYFI_ETH =
         ICurvePool(0x8aC64Ba8E440cE5c2d08688f4020698b1826152E);
     ICurvePool public constant CURVE_YFI_ETH =
@@ -46,7 +46,7 @@ library dYFIHelper {
             bytes memory userData = abi.encode(_dyfiAmount, ethRequired);
 
             // Execute flash loan
-            IBalancerVault(BALANCER_VAULT).flashLoan(
+            BALANCER_VAULT.flashLoan(
                 address(this),
                 tokens,
                 amounts,
@@ -61,7 +61,10 @@ library dYFIHelper {
 
     function flashloanLogic(bytes memory userData) external {
         // Decode the dYFI amount from userData
-        (uint256 dyfiAmount, uint256 ethRequired) = abi.decode(userData, (uint256, uint256));
+        (uint256 dyfiAmount, uint256 ethRequired) = abi.decode(
+            userData,
+            (uint256, uint256)
+        );
 
         // Unwrap WETH to ETH
         IWETH(WETH).withdraw(ethRequired);
@@ -82,7 +85,11 @@ library dYFIHelper {
         approveSpend(WETH, BALANCER_VAULT, ethRequired);
     }
 
-    function approveSpend(address _token, address _spender, uint256 _amount) internal {
-        IERC20(_token).safeApprove(_spender, _amount+1);
+    function approveSpend(
+        address _token,
+        address _spender,
+        uint256 _amount
+    ) internal {
+        IERC20(_token).safeApprove(_spender, _amount + 1);
     }
 }
