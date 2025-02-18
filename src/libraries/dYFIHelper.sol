@@ -8,22 +8,37 @@ import {IdYFIRedeemer} from "../interfaces/IdYFIRedeemer.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/// @title dYFI Helper Library
+/// @notice Helper functions for handling dYFI redemptions and conversions
+/// @dev Provides functionality for converting dYFI to WETH through various paths
+/// @custom:security-contact security@yearn.fi
 library dYFIHelper {
     using SafeERC20 for IERC20;
 
+    /// @notice Address of the dYFI token contract
     address private constant DYFI = 0x41252E8691e964f7DE35156B68493bAb6797a275;
+    /// @notice Address of the YFI token contract
     address private constant YFI = 0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e;
+    /// @notice Address of the WETH token contract
     address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
+    /// @notice Balancer Vault contract for flash loans
     IBalancerVault public constant BALANCER_VAULT =
         IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    /// @notice Curve pool for dYFI/ETH swaps
     ICurvePool public constant CURVE_DYFI_ETH =
         ICurvePool(0x8aC64Ba8E440cE5c2d08688f4020698b1826152E);
+    /// @notice Curve pool for YFI/ETH swaps
     ICurvePool public constant CURVE_YFI_ETH =
         ICurvePool(0xC26b89A667578ec7b3f11b2F98d6Fd15C07C54ba);
+    /// @notice dYFI Redeemer contract for converting dYFI to YFI
     IDYFIRedeemer public constant DYFI_REDEEMER =
         IdYFIRedeemer(0x7dC3A74F0684fc026f9163C6D5c3C99fda2cf60a);
 
+    /// @notice Converts dYFI tokens to WETH using the most profitable path
+    /// @dev Compares direct Curve swap vs redeeming for YFI and then swapping
+    /// @param _dyfiAmount Amount of dYFI to convert
+    /// @return _wethAmount Amount of WETH received from the conversion
     function dumpToWeth(
         uint256 _dyfiAmount
     ) external returns (uint256 _wethAmount) {
@@ -33,9 +48,7 @@ library dYFIHelper {
         uint256 amountOutRedeem = CURVE_YFI_ETH.get_dy(0, 1, _dyfiAmount) -
             ethRequired;
 
-        bool redeem = amountOutRedeem > amountOutCurve;
-
-        if (redeem) {
+        if (amountOutRedeem > amountOutCurve) {
             // Setup flash loan parameters
             address[] memory tokens = new address[](1);
             tokens[0] = WETH;
@@ -46,19 +59,22 @@ library dYFIHelper {
             bytes memory userData = abi.encode(_dyfiAmount, ethRequired);
 
             // Execute flash loan
-            BALANCER_VAULT.flashLoan(
-                address(this),
-                tokens,
-                amounts,
-                userData
-            );
+            BALANCER_VAULT.flashLoan(address(this), tokens, amounts, userData);
 
             _wethAmount = amountOutRedeem;
         } else {
-            amountOutCurve.exchange(0, 1, _dyfiAmount, amountOutCurve);
+            _wethAmount = amountOutCurve.exchange(
+                0,
+                1,
+                _dyfiAmount,
+                amountOutCurve
+            );
         }
     }
 
+    /// @notice Executes the flash loan logic for dYFI redemption
+    /// @dev Called by the Strategy inside the flashloan callback
+    /// @param userData Encoded data containing dYFI amount and required ETH amount
     function flashloanLogic(bytes memory userData) external {
         // Decode the dYFI amount from userData
         (uint256 dyfiAmount, uint256 ethRequired) = abi.decode(
@@ -85,6 +101,11 @@ library dYFIHelper {
         approveSpend(WETH, BALANCER_VAULT, ethRequired);
     }
 
+    /// @notice Safely approves token spending with an extra 1 for gas savings
+    /// @dev Uses OpenZeppelin's SafeERC20 for the approval
+    /// @param _token The token to approve spending of
+    /// @param _spender The address to approve spending for
+    /// @param _amount The amount to approve (will add 1 wei as buffer)
     function approveSpend(
         address _token,
         address _spender,

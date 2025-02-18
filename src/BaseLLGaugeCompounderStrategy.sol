@@ -42,6 +42,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
         string memory _name,
         uint24 _assetSwapUniFee
     ) Base4626Compounder(IStrategy(_vault).asset(), _name, _vault) {
+        minAmountToSell = 0.005e18; // minEthToSwap;
         if (address(asset) != WETH && _assetSwapUniFee != 0) {
             _setUniFees(WETH, address(asset), _assetSwapUniFee);
         }
@@ -91,21 +92,21 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @notice Sets whether to disable automatic conversion of dYFI rewards to WETH
     /// @param _dontDumpDYfi New value for dontDumpDYfi flag
     /// @dev Can only be called by governance
-    function setDontDumpDYfi(bool _dontDumpDYfi) external onlyGovernance {
+    function setDontDumpDYfi(bool _dontDumpDYfi) external onlyManagementonlyGovernance {
         dontDumpDYfi = _dontDumpDYfi;
     }
 
     /// @notice Sets whether to disable automatic swapping of WETH to strategy asset
     /// @param _dontSwapWeth New value for dontSwapWeth flag
     /// @dev Can only be called by governance
-    function setDontSwapWeth(bool _dontSwapWeth) external onlyGovernance {
+    function setDontSwapWeth(bool _dontSwapWeth) external onlyManagement {
         dontSwapWeth = _dontSwapWeth;
     }
 
     /// @notice Sets whether to use auctions for token swaps
     /// @param _useAuctions New value for useAuctions flag
     /// @dev Can only be called by governance
-    function setUseAuctions(bool _useAuctions) external onlyGovernance {
+    function setUseAuctions(bool _useAuctions) external onlyManagement {
         useAuctions = _useAuctions;
     }
 
@@ -116,6 +117,13 @@ abstract contract BaseLLGaugeCompounderStrategy is
         uint24 _wethToAssetSwapFee
     ) external onlyManagement {
         _setUniFees(WETH, address(asset), _wethToAssetSwapFee);
+    }
+
+    /// @notice Sets the minimum amount of WETH required to trigger a swap
+    /// @dev Can only be called by management
+    /// @param _minEulToSwap Minimum amount of EUL tokens (in wei) needed to execute a swap
+    function setMinWethToSwap(uint256 _minWethToSwap) external onlyManagement {
+        minAmountToSell = _minWethToSwap;
     }
 
     /// @notice Allows the contract to receive ETH
