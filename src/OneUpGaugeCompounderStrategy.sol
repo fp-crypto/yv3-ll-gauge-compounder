@@ -4,27 +4,58 @@ pragma solidity ^0.8.18;
 import {BaseLLGaugeCompounderStrategy, IStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
 import {IGauge} from "./interfaces/1up/IGauge.sol";
 import {IGaugeRewards} from "./interfaces/1up/IGaugeRewards.sol";
+import {IRegistry} from "./interfaces/1up/IRegistry.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
+/// @title OneUpGaugeCompounderStrategy
+/// @notice Strategy for compounding rewards from 1UP LL gauges
+/// @dev Inherits from BaseLLGaugeCompounderStrategy to handle basic LL gauge operations
+/// @custom:security-contact security@yearn.fi
 contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     using SafeERC20 for IERC20;
 
+    /// @notice The 1UP registry contract that tracks all gauges
+    IRegistry public constant ONE_UP_REGISTRY =
+        IRegistry(0x512AdCb1e162bf447919D46Ae5B42d9331e9DF5D);
+
+    /// @notice The 1UP gauge contract for this strategy
     IGauge public immutable ONE_UP_GAUGE;
+
+    /// @notice The rewards contract for the 1UP gauge
     IGaugeRewards public immutable ONE_UP_GAUGE_REWARDS;
 
+    /// @notice Initialize the strategy with a gauge and name
+    /// @param _yGauge The Yearn gauge address this strategy will compound
+    /// @param _name The name of the strategy
+    /// @param _assetSwapUniFee The Uniswap V3 fee tier for asset swaps
     constructor(
-        address _vault,
+        address _yGauge,
         string memory _name,
-        uint24 _assetSwapUniFee,
-        address _oneUpGauge
-    ) BaseLLGaugeCompounderStrategy(_vault, _name, _assetSwapUniFee) {
-        ONE_UP_GAUGE = IGauge(_oneUpGauge);
-        ONE_UP_GAUGE_REWARDS = IGaugeRewards(IGauge(_oneUpGauge).rewards());
+        uint24 _assetSwapUniFee
+    ) BaseLLGaugeCompounderStrategy(_yGauge, _name, _assetSwapUniFee) {
+        ONE_UP_GAUGE = IGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
+        ONE_UP_GAUGE_REWARDS = IGaugeRewards(ONE_UP_GAUGE.rewards());
 
-        IERC20(_vault).approve(address(ONE_UP_GAUGE), type(uint256.max));
+        IERC20(vault).approve(address(ONE_UP_GAUGE), type(uint256).max);
     }
 
+    /// @notice Calculate the maximum amount that can be withdrawn from all vaults
+    /// @return The maximum withdrawable amount in terms of the underlying asset
+    /// @dev Combines the withdrawable amounts from both the vault and the gauge
+    function vaultsMaxWithdraw() public view override returns (uint256) {
+        return
+            vault.convertToAssets(
+                vault.maxRedeem(address(this)) +
+                    ONE_UP_GAUGE.convertToAssets(
+                        ONE_UP_GAUGE.maxRedeem(address(this))
+                    )
+            );
+    }
+
+    /// @notice Stakes available vault tokens in the 1UP gauge
+    /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
         uint256 _stakeAmount = Math.min(
             balanceOfVault(),
@@ -33,14 +64,24 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         ONE_UP_GAUGE.deposit(_stakeAmount, address(this));
     }
 
-
+    /// @notice Unstakes tokens from the 1UP gauge
+    /// @param _amount The amount of tokens to unstake
+    /// @dev Withdraws directly to this contract's address
     function _unStake(uint256 _amount) internal override {
         ONE_UP_GAUGE.withdraw(_amount, address(this), address(this));
     }
 
+    /// @notice Get the current balance of staked tokens
+    /// @return The amount of underlying tokens staked in the 1UP gauge
+    /// @dev Converts gauge shares to underlying asset amount
+    function balanceOfStake() public view override returns (uint256) {
+        return
+            ONE_UP_GAUGE.convertToAssets(ONE_UP_GAUGE.balanceOf(address(this)));
+    }
 
+    /// @notice Claims dYFI rewards from the 1UP gauge
     function _claimDYfi() internal override {
-        address[] _gauges = new address[](1);
+        address[] memory _gauges = new address[](1);
         _gauges[0] = address(ONE_UP_GAUGE);
         ONE_UP_GAUGE_REWARDS.claim(_gauges, address(this));
     }

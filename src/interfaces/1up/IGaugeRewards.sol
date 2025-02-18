@@ -95,7 +95,6 @@ interface IGaugeRewards {
 
     /// @notice Claim and optionally redeem rewards
     /// @param gauges Gauges to claim rewards from
-    /// @param receiver Recipient of the rewards
     function claim(
         address[] calldata gauges
     ) external payable returns (uint256);

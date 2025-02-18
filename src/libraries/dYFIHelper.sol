@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {IdYFIRedeemer} from "../interfaces/IdYFIRedeemer.sol";
 import {IBalancerVault} from "../interfaces/IBalancerVault.sol";
 import {ICurvePool} from "../interfaces/ICurvePool.sol";
-import {IdYFIRedeemer} from "../interfaces/IdYFIRedeemer.sol";
+import {IDYFIRedeemer} from "../interfaces/IDYFIRedeemer.sol";
+import {IWETH} from "../interfaces/IWETH.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -33,7 +33,14 @@ library dYFIHelper {
         ICurvePool(0xC26b89A667578ec7b3f11b2F98d6Fd15C07C54ba);
     /// @notice dYFI Redeemer contract for converting dYFI to YFI
     IDYFIRedeemer public constant DYFI_REDEEMER =
-        IdYFIRedeemer(0x7dC3A74F0684fc026f9163C6D5c3C99fda2cf60a);
+        IDYFIRedeemer(0x7dC3A74F0684fc026f9163C6D5c3C99fda2cf60a);
+
+    /// @notice Converts dYFI tokens to WETH using the most profitable path
+    /// @dev Compares direct Curve swap vs redeeming for YFI and then swapping
+    /// @return _wethAmount Amount of WETH received from the conversion
+    function dumpToWeth() external returns (uint256 _wethAmount) {
+        return dumpToWeth(IERC20(DYFI).balanceOf(address(this)));
+    }
 
     /// @notice Converts dYFI tokens to WETH using the most profitable path
     /// @dev Compares direct Curve swap vs redeeming for YFI and then swapping
@@ -41,12 +48,18 @@ library dYFIHelper {
     /// @return _wethAmount Amount of WETH received from the conversion
     function dumpToWeth(
         uint256 _dyfiAmount
-    ) external returns (uint256 _wethAmount) {
+    ) public returns (uint256 _wethAmount) {
+        if (_dyfiAmount == 0) return 0;
+
         uint256 amountOutCurve = CURVE_DYFI_ETH.get_dy(0, 1, _dyfiAmount);
 
         uint256 ethRequired = DYFI_REDEEMER.eth_required(_dyfiAmount);
-        uint256 amountOutRedeem = CURVE_YFI_ETH.get_dy(0, 1, _dyfiAmount) -
-            ethRequired;
+        uint256 amountOutRedeem = CURVE_YFI_ETH.get_dy(1, 0, _dyfiAmount);
+        if (amountOutRedeem > ethRequired) {
+            amountOutRedeem -= ethRequired;
+        } else {
+            amountOutRedeem = 0;
+        }
 
         if (amountOutRedeem > amountOutCurve) {
             // Setup flash loan parameters
@@ -63,7 +76,8 @@ library dYFIHelper {
 
             _wethAmount = amountOutRedeem;
         } else {
-            _wethAmount = amountOutCurve.exchange(
+            approveSpend(DYFI, address(CURVE_DYFI_ETH), _dyfiAmount);
+            _wethAmount = CURVE_DYFI_ETH.exchange(
                 0,
                 1,
                 _dyfiAmount,
@@ -89,16 +103,16 @@ library dYFIHelper {
         approveSpend(DYFI, address(DYFI_REDEEMER), dyfiAmount);
 
         // Redeem dYFI for YFI
-        DYFI_REDEEMER.redeem{value: ethRequired}(dyfiAmount);
+        DYFI_REDEEMER.redeem{value: ethRequired}(dyfiAmount, address(this));
 
         // Approve YFI for Curve swap
         approveSpend(YFI, address(CURVE_YFI_ETH), dyfiAmount);
 
         // Swap YFI for ETH through Curve
-        CURVE_YFI_ETH.exchange(0, 1, dyfiAmount, minOut);
+        CURVE_YFI_ETH.exchange(1, 0, dyfiAmount, ethRequired);
 
-        // Approve WETH for flash loan repayment
-        approveSpend(WETH, BALANCER_VAULT, ethRequired);
+        // Repay flashloan
+        IERC20(WETH).safeTransfer(address(BALANCER_VAULT), ethRequired);
     }
 
     /// @notice Safely approves token spending with an extra 1 for gas savings

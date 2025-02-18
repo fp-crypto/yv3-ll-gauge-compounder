@@ -6,7 +6,6 @@ import {IWETH} from "./interfaces/IWETH.sol";
 
 import {Base4626Compounder, ERC20, IStrategy} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
 import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
-import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 
 /// @title Base Liquid Locker Gauge Compounder Strategy
 /// @notice Abstract base contract for Liquid Locker gauge compounding strategies
@@ -14,7 +13,6 @@ import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 /// @custom:security-contact security@yearn.fi
 abstract contract BaseLLGaugeCompounderStrategy is
     Base4626Compounder,
-    AuctionSwapper,
     UniswapV3Swapper
 {
     /// @notice The Wrapped Ether contract address
@@ -33,18 +31,26 @@ abstract contract BaseLLGaugeCompounderStrategy is
     bool public useAuctions;
 
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
-    /// @param _vault Address of the underlying vault
+    /// @param _yGauge Address of the yearn gauge
     /// @param _name Name of the strategy token
     /// @param _assetSwapUniFee Uniswap V3 fee tier for asset swaps (use 0 if asset is WETH)
     /// @dev Sets up Uniswap fee tiers for non-WETH assets
     constructor(
-        address _vault,
+        address _yGauge,
         string memory _name,
         uint24 _assetSwapUniFee
-    ) Base4626Compounder(IStrategy(_vault).asset(), _name, _vault) {
+    )
+        Base4626Compounder(
+            IStrategy(IStrategy(_yGauge).asset()).asset(), // the underlying asset
+            _name,
+            IStrategy(_yGauge).asset() // the vault
+        )
+    {
         minAmountToSell = 0.005e18; // minEthToSwap;
         if (address(asset) != WETH && _assetSwapUniFee != 0) {
             _setUniFees(WETH, address(asset), _assetSwapUniFee);
+        } else {
+            dontSwapWeth = true;
         }
     }
 
@@ -58,7 +64,11 @@ abstract contract BaseLLGaugeCompounderStrategy is
             dYFIHelper.dumpToWeth();
         }
 
-        if (!dontSwapWeth) {
+        if (
+            !dontSwapWeth &&
+            address(asset) != address(WETH) &&
+            uniFees[address(WETH)][address(asset)] != 0
+        ) {
             _swapFrom(
                 address(WETH),
                 address(asset),
@@ -84,7 +94,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
         uint256[] calldata feeAmounts,
         bytes calldata userData
     ) external {
-        require(msg.sender == dYFIHelper.BALANCER_VAULT(), "!balancer");
+        require(msg.sender == address(dYFIHelper.BALANCER_VAULT), "!balancer");
         require(feeAmounts.length == 1 && feeAmounts[0] == 0, "fee");
         dYFIHelper.flashloanLogic(userData);
     }
@@ -92,7 +102,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @notice Sets whether to disable automatic conversion of dYFI rewards to WETH
     /// @param _dontDumpDYfi New value for dontDumpDYfi flag
     /// @dev Can only be called by governance
-    function setDontDumpDYfi(bool _dontDumpDYfi) external onlyManagementonlyGovernance {
+    function setDontDumpDYfi(bool _dontDumpDYfi) external onlyManagement {
         dontDumpDYfi = _dontDumpDYfi;
     }
 
@@ -121,7 +131,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice Sets the minimum amount of WETH required to trigger a swap
     /// @dev Can only be called by management
-    /// @param _minEulToSwap Minimum amount of EUL tokens (in wei) needed to execute a swap
+    /// @param _minWethToSwap Minimum amount of WETH tokens (in wei) needed to execute a swap
     function setMinWethToSwap(uint256 _minWethToSwap) external onlyManagement {
         minAmountToSell = _minWethToSwap;
     }
