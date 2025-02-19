@@ -2,29 +2,24 @@
 pragma solidity ^0.8.18;
 
 import {BaseLLGaugeCompounderStrategy, IStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
-import {IGauge} from "./interfaces/1up/IGauge.sol";
-import {IGaugeRewards} from "./interfaces/1up/IGaugeRewards.sol";
-import {IRegistry} from "./interfaces/1up/IRegistry.sol";
+import {ICoveYearnGaugeFactory} from "./interfaces/cove/ICoveYearnGaugeFactory.sol";
+import {IYSDRewardsGauge} from "./interfaces/cove/IYSDRewardsGauge.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-/// @title OneUpGaugeCompounderStrategy
-/// @notice Strategy for compounding rewards from 1UP LL gauges
+/// @title CoveGaugeCompounderStrategy
+/// @notice Strategy for compounding rewards from Cove LL gauges
 /// @dev Inherits from BaseLLGaugeCompounderStrategy to handle basic LL gauge operations
 /// @custom:security-contact security@yearn.fi
-contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
+contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     using SafeERC20 for IERC20;
 
-    /// @notice The 1UP registry contract that tracks all gauges
-    IRegistry public constant ONE_UP_REGISTRY =
-        IRegistry(0x512AdCb1e162bf447919D46Ae5B42d9331e9DF5D);
+    ICoveYearnGaugeFactory public constant COVE_GAUGE_FACTORY =
+        ICoveYearnGaugeFactory(0x842b22Eb2A1C1c54344eDdbE6959F787c2d15844);
 
-    /// @notice The 1UP gauge contract for this strategy
-    IGauge public immutable ONE_UP_GAUGE;
-
-    /// @notice The rewards contract for the 1UP gauge
-    IGaugeRewards public immutable ONE_UP_GAUGE_REWARDS;
+    /// @notice The Cove gauge contract for this strategy
+    IYSDRewardsGauge public immutable COVE_GAUGE;
 
     /// @notice Initialize the strategy with a gauge and name
     /// @param _yGauge The Yearn gauge address this strategy will compound
@@ -35,10 +30,13 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         string memory _name,
         uint24 _assetSwapUniFee
     ) BaseLLGaugeCompounderStrategy(_yGauge, _name, _assetSwapUniFee) {
-        ONE_UP_GAUGE = IGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
-        ONE_UP_GAUGE_REWARDS = IGaugeRewards(ONE_UP_GAUGE.rewards());
-
-        IERC20(vault).approve(address(ONE_UP_GAUGE), type(uint256).max);
+        COVE_GAUGE = IYSDRewardsGauge(
+            COVE_GAUGE_FACTORY
+                .yearnGaugeInfoStored(_yGauge)
+                .nonAutoCompoundingGauge
+        );
+        IERC20(vault).approve(_yGauge, type(uint256).max);
+        IERC20(_yGauge).approve(address(COVE_GAUGE), type(uint256).max);
     }
 
     /// @notice Calculate the maximum amount that can be withdrawn from all vaults
@@ -50,41 +48,43 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         return
             vault.convertToAssets(
                 vault.maxRedeem(address(this)) +
-                    ONE_UP_GAUGE.convertToAssets(
-                        ONE_UP_GAUGE.maxRedeem(address(this))
+                    COVE_GAUGE.convertToAssets(
+                        COVE_GAUGE.maxRedeem(address(this))
                     )
             );
     }
 
-    /// @notice Stakes available vault tokens in the 1UP gauge
+    /// @notice Stakes available vault tokens in the Cove gauge
     /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
         uint256 _stakeAmount = Math.min(
             balanceOfVault(),
-            ONE_UP_GAUGE.maxDeposit(address(this))
+            COVE_GAUGE.maxDeposit(address(this))
         );
-        ONE_UP_GAUGE.deposit(_stakeAmount, address(this));
+        IStrategy(Y_GAUGE).deposit(_stakeAmount, address(this));
+        COVE_GAUGE.deposit(_stakeAmount, address(this));
     }
 
-    /// @notice Unstakes tokens from the 1UP gauge
+    /// @notice Unstakes tokens from the Cove gauge
     /// @param _amount The amount of tokens to unstake
     /// @dev Withdraws directly to this contract's address
     function _unStake(uint256 _amount) internal override {
-        ONE_UP_GAUGE.withdraw(_amount, address(this), address(this));
+        COVE_GAUGE.withdraw(_amount, address(this), address(this));
+        IStrategy(Y_GAUGE).withdraw(_amount, address(this), address(this));
     }
 
     /// @notice Get the current balance of staked tokens
-    /// @return The amount of underlying tokens staked in the 1UP gauge
+    /// @return The amount of underlying tokens staked in the Cove gauge
     /// @dev Converts gauge shares to underlying asset amount
     function balanceOfStake() public view override returns (uint256) {
         return
-            ONE_UP_GAUGE.convertToAssets(ONE_UP_GAUGE.balanceOf(address(this)));
+            IStrategy(Y_GAUGE).convertToAssets(
+                COVE_GAUGE.convertToAssets(COVE_GAUGE.balanceOf(address(this)))
+            );
     }
 
-    /// @notice Claims dYFI rewards from the 1UP gauge
+    /// @notice Claims dYFI rewards from the Cove gauge
     function _claimDYfi() internal override {
-        address[] memory _gauges = new address[](1);
-        _gauges[0] = address(ONE_UP_GAUGE);
-        ONE_UP_GAUGE_REWARDS.claim(_gauges, address(this));
+        COVE_GAUGE.claimRewards(address(this), address(this));
     }
 }

@@ -8,8 +8,12 @@ contract ShutdownTest is Setup {
         super.setUp();
     }
 
-    function test_shutdownCanWithdraw(uint256 _amount) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
+    function test_shutdownCanWithdraw(
+        IStrategyInterface strategy,
+        uint256 _amount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
@@ -39,8 +43,12 @@ contract ShutdownTest is Setup {
         );
     }
 
-    function test_emergencyWithdraw_maxUint(uint256 _amount) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
+    function test_emergencyWithdraw_maxUint(
+        IStrategyInterface strategy,
+        uint256 _amount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
@@ -73,6 +81,4 @@ contract ShutdownTest is Setup {
             "!final balance"
         );
     }
-
-    // TODO: Add tests for any emergency function added.
 }

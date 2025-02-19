@@ -12,7 +12,9 @@ contract FunctionSignatureTest is Setup {
     // This test should not be overridden and checks that
     // no function signature collisions occurred from the custom functions.
     // Does not check functions that are strategy dependant and will be checked in other tests
-    function test_functionCollisions() public {
+    function test_functionCollisions(IStrategyInterface strategy) public {
+        vm.assume(_isFixtureStrategy(strategy));
+
         uint256 wad = 1e18;
         vm.expectRevert("initialized");
         strategy.initialize(

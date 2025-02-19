@@ -30,6 +30,8 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev When true, uses auction-based swapping mechanism instead of Uniswap
     bool public useAuctions;
 
+    address public immutable Y_GAUGE;
+
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
     /// @param _name Name of the strategy token
@@ -46,6 +48,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
             IStrategy(_yGauge).asset() // the vault
         )
     {
+        Y_GAUGE = _yGauge;
         minAmountToSell = 0.005e18; // minEthToSwap;
         if (address(asset) != WETH && _assetSwapUniFee != 0) {
             _setUniFees(WETH, address(asset), _assetSwapUniFee);

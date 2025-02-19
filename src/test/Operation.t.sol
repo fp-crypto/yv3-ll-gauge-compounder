@@ -11,7 +11,8 @@ contract OperationTest is Setup {
         super.setUp();
     }
 
-    function test_setupStrategyOK() public {
+    function test_setupStrategyOK(IStrategyInterface strategy) public {
+        vm.assume(_isFixtureStrategy(strategy));
         console2.log("address of strategy", address(strategy));
         assertTrue(address(0) != address(strategy));
         assertEq(strategy.asset(), address(asset));
@@ -21,7 +22,11 @@ contract OperationTest is Setup {
         assertTrue(strategyFactory.isDeployedStrategy(address(strategy)));
     }
 
-    function test_operation(uint256 _amount) public {
+    function test_operation(
+        IStrategyInterface strategy,
+        uint256 _amount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
         _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
 
         // Deposit into strategy
@@ -56,9 +61,11 @@ contract OperationTest is Setup {
     }
 
     function test_profitableReport_airdrop(
+        IStrategyInterface strategy,
         uint256 _amount,
         uint256 _dyfiRewardAmount
     ) public {
+        vm.assume(_isFixtureStrategy(strategy));
         _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,
@@ -100,9 +107,11 @@ contract OperationTest is Setup {
     }
 
     function test_profitableReport_airdrop_forceRedeem(
+        IStrategyInterface strategy,
         uint256 _amount,
         uint256 _dyfiRewardAmount
     ) public {
+        vm.assume(_isFixtureStrategy(strategy));
         _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,
@@ -150,9 +159,11 @@ contract OperationTest is Setup {
     }
 
     function test_profitableReport_airdrop_forceCurveOnly(
+        IStrategyInterface strategy,
         uint256 _amount,
         uint256 _dyfiRewardAmount
     ) public {
+        vm.assume(_isFixtureStrategy(strategy));
         _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,

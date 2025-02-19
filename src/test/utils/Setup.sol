@@ -24,7 +24,8 @@ contract Setup is ExtendedTest, IEvents {
     // Contract instances that we will use repeatedly.
     ERC20 public asset;
     IStrategy public vault;
-    IStrategyInterface public strategy;
+
+    IStrategyInterface[] public fixtureStrategy;
 
     LLGaugeCompounderStrategiesFactory public strategyFactory;
 
@@ -68,9 +69,9 @@ contract Setup is ExtendedTest, IEvents {
         );
 
         // Deploy strategy and set variables
-        strategy = IStrategyInterface(setUpStrategy());
+        setUpStrategies();
 
-        factory = strategy.FACTORY();
+        factory = fixtureStrategy[0].FACTORY();
 
         // label all the used addresses for traces
         vm.label(keeper, "keeper");
@@ -78,26 +79,35 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(address(asset), "asset");
         vm.label(address(vault), "vault");
         vm.label(management, "management");
-        vm.label(address(strategy), "strategy");
         vm.label(performanceFeeRecipient, "performanceFeeRecipient");
     }
 
-    function setUpStrategy() public returns (address) {
-        // we save the strategy as a IStrategyInterface to give it the needed interface
-        IStrategyInterface _strategy = IStrategyInterface(
-            address(
-                strategyFactory
-                    .newStrategiesGroup(address(vault), "Tokenized Strategy", 0)
-                    .oneUpStrategy
-            )
-        );
+    function setUpStrategies() public returns (address, address, address) {
+        LLGaugeCompounderStrategiesFactory.LLStrategyTriple
+            memory _strategies = strategyFactory.newStrategiesGroup(
+                address(vault),
+                "Tokenized Strategy",
+                0
+            );
+
+        fixtureStrategy.push(IStrategyInterface(_strategies.coveStrategy));
+        vm.label(_strategies.coveStrategy, "cove strategy");
+        fixtureStrategy.push(IStrategyInterface(_strategies.oneUpStrategy));
+        vm.label(_strategies.oneUpStrategy, "1up strategy");
 
         vm.startPrank(management);
-        _strategy.acceptManagement();
-        _strategy.setProfitMaxUnlockTime(1 hours);
+        for (uint256 i; i < fixtureStrategy.length; ++i) {
+            IStrategy _strategy = fixtureStrategy[i];
+            _strategy.acceptManagement();
+            _strategy.setProfitMaxUnlockTime(1 hours);
+        }
         vm.stopPrank();
 
-        return address(_strategy);
+        return (
+            _strategies.coveStrategy,
+            _strategies.oneUpStrategy,
+            address(0)
+        );
     }
 
     function depositIntoStrategy(
@@ -158,24 +168,33 @@ contract Setup is ExtendedTest, IEvents {
             );
     }
 
-    function setFees(uint16 _protocolFee, uint16 _performanceFee) public {
-        address gov = IFactory(factory).governance();
+    // function setFees(uint16 _protocolFee, uint16 _performanceFee) public {
+    //     address gov = IFactory(factory).governance();
 
-        // Need to make sure there is a protocol fee recipient to set the fee.
-        vm.prank(gov);
-        IFactory(factory).set_protocol_fee_recipient(gov);
+    //     // Need to make sure there is a protocol fee recipient to set the fee.
+    //     vm.prank(gov);
+    //     IFactory(factory).set_protocol_fee_recipient(gov);
 
-        vm.prank(gov);
-        IFactory(factory).set_protocol_fee_bps(_protocolFee);
+    //     vm.prank(gov);
+    //     IFactory(factory).set_protocol_fee_bps(_protocolFee);
 
-        vm.prank(management);
-        strategy.setPerformanceFee(_performanceFee);
-    }
+    //     vm.prank(management);
+    //     strategy.setPerformanceFee(_performanceFee);
+    // }
 
     function _setTokenAddrs() internal {
         tokenAddrs["WETH"] = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
         tokenAddrs["USDC"] = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
         tokenAddrs["yvWETH-2"] = 0xAc37729B76db6438CE62042AE1270ee574CA7571;
         tokenAddrs["dYFI"] = 0x41252E8691e964f7DE35156B68493bAb6797a275;
+    }
+
+    function _isFixtureStrategy(
+        IStrategyInterface _strategy
+    ) internal returns (bool) {
+        for (uint256 i; i < fixtureStrategy.length; ++i) {
+            if (fixtureStrategy[i] == _strategy) return true;
+        }
+        return false;
     }
 }
