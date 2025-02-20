@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {BaseLLGaugeCompounderStrategy, IStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
-import {IGauge} from "./interfaces/1up/IGauge.sol";
-import {IGaugeRewards} from "./interfaces/1up/IGaugeRewards.sol";
+import {BaseLLGaugeCompounderStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
+import {IGauge as IOneUpGauge} from "./interfaces/1up/IGauge.sol";
+import {IGaugeRewards as IOneUpGaugeRewards} from "./interfaces/1up/IGaugeRewards.sol";
 import {IRegistry} from "./interfaces/1up/IRegistry.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -21,10 +21,10 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         IRegistry(0x512AdCb1e162bf447919D46Ae5B42d9331e9DF5D);
 
     /// @notice The 1UP gauge contract for this strategy
-    IGauge public immutable ONE_UP_GAUGE;
+    IOneUpGauge public immutable ONE_UP_GAUGE;
 
     /// @notice The rewards contract for the 1UP gauge
-    IGaugeRewards public immutable ONE_UP_GAUGE_REWARDS;
+    IOneUpGaugeRewards public immutable ONE_UP_GAUGE_REWARDS;
 
     /// @notice Initialize the strategy with a gauge and name
     /// @param _yGauge The Yearn gauge address this strategy will compound
@@ -35,10 +35,10 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         string memory _name,
         uint24 _assetSwapUniFee
     ) BaseLLGaugeCompounderStrategy(_yGauge, _name, _assetSwapUniFee) {
-        ONE_UP_GAUGE = IGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
-        ONE_UP_GAUGE_REWARDS = IGaugeRewards(ONE_UP_GAUGE.rewards());
+        ONE_UP_GAUGE = IOneUpGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
+        ONE_UP_GAUGE_REWARDS = IOneUpGaugeRewards(ONE_UP_GAUGE.rewards());
 
-        IERC20(vault).approve(address(ONE_UP_GAUGE), type(uint256).max);
+        IERC20(vault).safeApprove(address(ONE_UP_GAUGE), type(uint256).max);
     }
 
     /// @notice Calculate the maximum amount that can be withdrawn from all vaults

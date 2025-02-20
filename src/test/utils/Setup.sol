@@ -91,9 +91,11 @@ contract Setup is ExtendedTest, IEvents {
             );
 
         fixtureStrategy.push(IStrategyInterface(_strategies.coveStrategy));
-        vm.label(_strategies.coveStrategy, "cove strategy");
+        vm.label(_strategies.coveStrategy, "CoveStrategy");
         fixtureStrategy.push(IStrategyInterface(_strategies.oneUpStrategy));
-        vm.label(_strategies.oneUpStrategy, "1up strategy");
+        vm.label(_strategies.oneUpStrategy, "OneUpStrategy");
+        fixtureStrategy.push(IStrategyInterface(_strategies.stakeDaoStrategy));
+        vm.label(_strategies.stakeDaoStrategy, "StakeDaoStrategy");
 
         vm.startPrank(management);
         for (uint256 i; i < fixtureStrategy.length; ++i) {
@@ -106,7 +108,7 @@ contract Setup is ExtendedTest, IEvents {
         return (
             _strategies.coveStrategy,
             _strategies.oneUpStrategy,
-            address(0)
+            _strategies.stakeDaoStrategy
         );
     }
 

@@ -34,8 +34,7 @@ contract OperationTest is Setup {
 
         assertEq(strategy.totalAssets(), _amount, "!totalAssets");
 
-        // Earn Interest
-        skip(1 days);
+        skip(10 minutes);
 
         // Report profit
         vm.prank(keeper);

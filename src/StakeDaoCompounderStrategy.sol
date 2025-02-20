@@ -2,24 +2,25 @@
 pragma solidity ^0.8.18;
 
 import {BaseLLGaugeCompounderStrategy, IStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
-import {ICoveYearnGaugeFactory} from "./interfaces/cove/ICoveYearnGaugeFactory.sol";
-import {IYSDRewardsGauge} from "./interfaces/cove/IYSDRewardsGauge.sol";
+import {IYearnStrategy as IStakeDaoYearnStrategy} from "./interfaces/stakedao/IYearnStrategy.sol";
+import {ILiquidityGauge} from "./interfaces/stakedao/ILiquidityGauge.sol";
+import {IGaugeDepositorVault} from "./interfaces/stakedao/IGaugeDepositorVault.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-/// @title CoveGaugeCompounderStrategy
-/// @notice Strategy for compounding rewards from Cove LL gauges
+/// @title StakeDaoGaugeCompounderStrategy
+/// @notice Strategy for compounding rewards from StakeDAO LL gauges
 /// @dev Inherits from BaseLLGaugeCompounderStrategy to handle basic LL gauge operations
 /// @custom:security-contact security@yearn.fi
-contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
+contract StakeDaoGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     using SafeERC20 for IERC20;
 
-    ICoveYearnGaugeFactory public constant COVE_GAUGE_FACTORY =
-        ICoveYearnGaugeFactory(0x842b22Eb2A1C1c54344eDdbE6959F787c2d15844);
+    IStakeDaoYearnStrategy public constant STAKE_DAO_YEARN_STRATEGY =
+        IStakeDaoYearnStrategy(0x1be150a35bb8233d092747eBFDc75FB357c35168);
 
-    /// @notice The Cove gauge contract for this strategy
-    IYSDRewardsGauge public immutable COVE_GAUGE;
+    IGaugeDepositorVault public immutable STAKE_DAO_GAUGE_DEPOSITOR_VAULT;
+    ILiquidityGauge public immutable STAKE_DAO_LIQUIDITY_GAUGE;
 
     /// @notice Initialize the strategy with a gauge and name
     /// @param _yGauge The Yearn gauge address this strategy will compound
@@ -30,61 +31,60 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         string memory _name,
         uint24 _assetSwapUniFee
     ) BaseLLGaugeCompounderStrategy(_yGauge, _name, _assetSwapUniFee) {
-        COVE_GAUGE = IYSDRewardsGauge(
-            COVE_GAUGE_FACTORY
-                .yearnGaugeInfoStored(_yGauge)
-                .nonAutoCompoundingGauge
+        STAKE_DAO_LIQUIDITY_GAUGE = ILiquidityGauge(
+            STAKE_DAO_YEARN_STRATEGY.rewardDistributors(_yGauge)
         );
-        IERC20(vault).safeApprove(_yGauge, type(uint256).max);
-        IERC20(_yGauge).safeApprove(address(COVE_GAUGE), type(uint256).max);
+        STAKE_DAO_GAUGE_DEPOSITOR_VAULT = IGaugeDepositorVault(
+            STAKE_DAO_LIQUIDITY_GAUGE.vault()
+        );
+
+        IERC20(vault).safeApprove(
+            address(STAKE_DAO_GAUGE_DEPOSITOR_VAULT),
+            type(uint256).max
+        );
+        IERC20(address(STAKE_DAO_GAUGE_DEPOSITOR_VAULT)).safeApprove(
+            address(STAKE_DAO_LIQUIDITY_GAUGE),
+            type(uint256).max
+        );
     }
 
     /// @notice Calculate the maximum amount that can be withdrawn from all vaults
     /// @return The maximum withdrawable amount in terms of the underlying asset
     /// @dev Combines the withdrawable amounts from both the vault and the gauge
     function vaultsMaxWithdraw() public view override returns (uint256) {
-        // TODO: fix
-
         return
             vault.convertToAssets(
                 vault.maxRedeem(address(this)) +
-                    COVE_GAUGE.convertToAssets(
-                        COVE_GAUGE.maxRedeem(address(this))
-                    )
+                    STAKE_DAO_LIQUIDITY_GAUGE.balanceOf(address(this))
             );
     }
 
-    /// @notice Stakes available vault tokens in the Cove gauge
+    /// @notice Stakes available vault tokens in the StakeDAO gauge
     /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
-        uint256 _stakeAmount = Math.min(
+        STAKE_DAO_GAUGE_DEPOSITOR_VAULT.deposit(
+            address(this),
             balanceOfVault(),
-            COVE_GAUGE.maxDeposit(address(this))
+            true
         );
-        Y_GAUGE.deposit(_stakeAmount, address(this));
-        COVE_GAUGE.deposit(_stakeAmount, address(this));
     }
 
-    /// @notice Unstakes tokens from the Cove gauge
+    /// @notice Unstakes tokens from the StakeDAO gauge
     /// @param _amount The amount of tokens to unstake
     /// @dev Withdraws directly to this contract's address
     function _unStake(uint256 _amount) internal override {
-        COVE_GAUGE.withdraw(_amount, address(this), address(this));
-        Y_GAUGE.withdraw(_amount, address(this), address(this));
+        STAKE_DAO_GAUGE_DEPOSITOR_VAULT.withdraw(_amount);
     }
 
     /// @notice Get the current balance of staked tokens
-    /// @return The amount of underlying tokens staked in the Cove gauge
+    /// @return The amount of underlying tokens staked in the StakeDAO gauge
     /// @dev Converts gauge shares to underlying asset amount
     function balanceOfStake() public view override returns (uint256) {
-        return
-            Y_GAUGE.convertToAssets(
-                COVE_GAUGE.convertToAssets(COVE_GAUGE.balanceOf(address(this)))
-            );
+        return STAKE_DAO_LIQUIDITY_GAUGE.balanceOf(address(this));
     }
 
-    /// @notice Claims dYFI rewards from the Cove gauge
+    /// @notice Claims dYFI rewards from the StakeDAO gauge
     function _claimDYfi() internal override {
-        COVE_GAUGE.claimRewards(address(this), address(this));
+        STAKE_DAO_LIQUIDITY_GAUGE.claim_rewards(address(this), address(this));
     }
 }

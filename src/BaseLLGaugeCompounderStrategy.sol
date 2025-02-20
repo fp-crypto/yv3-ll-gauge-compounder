@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 import {dYFIHelper} from "./libraries/dYFIHelper.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
+import {IGauge} from "./interfaces/veyfi/IGauge.sol";
 
 import {Base4626Compounder, ERC20, IStrategy} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
 import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
@@ -30,7 +31,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev When true, uses auction-based swapping mechanism instead of Uniswap
     bool public useAuctions;
 
-    address public immutable Y_GAUGE;
+    IGauge public immutable Y_GAUGE;
 
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
@@ -48,7 +49,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
             IStrategy(_yGauge).asset() // the vault
         )
     {
-        Y_GAUGE = _yGauge;
+        Y_GAUGE = IGauge(_yGauge);
         minAmountToSell = 0.005e18; // minEthToSwap;
         if (address(asset) != WETH && _assetSwapUniFee != 0) {
             _setUniFees(WETH, address(asset), _assetSwapUniFee);

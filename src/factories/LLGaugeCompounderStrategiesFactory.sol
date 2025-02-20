@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import {OneUpGaugeCompounderStrategy} from "../OneUpGaugeCompounderStrategy.sol";
 import {CoveGaugeCompounderStrategy} from "../CoveGaugeCompounderStrategy.sol";
+import {OneUpGaugeCompounderStrategy} from "../OneUpGaugeCompounderStrategy.sol";
+import {StakeDaoGaugeCompounderStrategy} from "../StakeDaoCompounderStrategy.sol";
 import {IBaseLLGaugeCompounderStrategy as IStrategyInterface} from "../interfaces/IBaseLLGaugeCompounderStrategy.sol";
 import {IRegistry} from "../interfaces/veyfi/IRegistry.sol";
 
@@ -28,15 +29,16 @@ contract LLGaugeCompounderStrategiesFactory {
     address public performanceFeeRecipient;
     address public keeper;
 
-    /// @notice Structure to hold related strategy deployments for a single yVault
-    /// @dev Maps each gauge to its corresponding strategies from different LL providers
+    /// @notice Structure to hold related strategy deployments for a single gauge
+    /// @dev Groups together Cove, 1UP, and StakeDAO strategies for the same gauge
     struct LLStrategyTriple {
         address coveStrategy;
         address oneUpStrategy;
         address stakeDaoStrategy;
     }
 
-    /// @notice Track the deployments. yGauge => strategy
+    /// @notice Track the deployments for each gauge
+    /// @dev Maps yGauge address to a struct containing all three strategy addresses
     mapping(address => LLStrategyTriple) public deployments;
 
     /// @notice Initializes the factory with the core protocol roles
@@ -57,7 +59,7 @@ contract LLGaugeCompounderStrategiesFactory {
     }
 
     /// @notice Deploys a group of strategies for a given yVault
-    /// @dev Currently only deploys 1UP strategy, can be extended for other LL providers
+    /// @dev Deploys Cove, 1UP, and StakeDAO strategies for the given vault
     /// @param _yVault The yearn vault address to create strategies for
     /// @param _name The base name for the strategy tokens
     /// @param _assetSwapFee Uniswap pool fee for asset swaps
@@ -70,8 +72,13 @@ contract LLGaugeCompounderStrategiesFactory {
         address _yGauge = GAUGE_REGISTRY.vault_gauge_map(_yVault);
         require(_yGauge != address(0), "!gauge");
 
-        _group.oneUpStrategy = new1UpStrategy(_yGauge, _name, _assetSwapFee);
         _group.coveStrategy = newCoveStrategy(_yGauge, _name, _assetSwapFee);
+        _group.oneUpStrategy = new1UpStrategy(_yGauge, _name, _assetSwapFee);
+        _group.stakeDaoStrategy = newStakeDaoStrategy(
+            _yGauge,
+            _name,
+            _assetSwapFee
+        );
     }
 
     /// @notice Deploy a new 1UP Strategy
@@ -99,7 +106,7 @@ contract LLGaugeCompounderStrategiesFactory {
         _newStrategy.setPendingManagement(management);
         _newStrategy.setEmergencyAdmin(emergencyAdmin);
 
-        //emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "1up");
+        emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "cove");
 
         deployments[_yGauge].oneUpStrategy = address(_newStrategy);
         return address(_newStrategy);
@@ -130,9 +137,44 @@ contract LLGaugeCompounderStrategiesFactory {
         _newStrategy.setPendingManagement(management);
         _newStrategy.setEmergencyAdmin(emergencyAdmin);
 
-        //emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "1up");
+        emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "1up");
 
         deployments[_yGauge].coveStrategy = address(_newStrategy);
+        return address(_newStrategy);
+    }
+
+    /// @notice Deploy a new StakeDAO Strategy
+    /// @dev Creates a new StakeDAO Strategy instance and sets up all the required roles
+    /// @param _yGauge The yearn gauge being compounded
+    /// @param _name The name for the strategy token
+    /// @param _assetSwapFee Uniswap pool fee for asset swaps
+    /// @return address The address of the newly deployed strategy
+    function newStakeDaoStrategy(
+        address _yGauge,
+        string calldata _name,
+        uint24 _assetSwapFee
+    ) public virtual returns (address) {
+        require(deployments[_yGauge].stakeDaoStrategy == address(0), "exists");
+
+        // tokenized strategies available setters.
+        IStrategyInterface _newStrategy = IStrategyInterface(
+            address(
+                new StakeDaoGaugeCompounderStrategy(
+                    _yGauge,
+                    _name,
+                    _assetSwapFee
+                )
+            )
+        );
+
+        _newStrategy.setPerformanceFeeRecipient(performanceFeeRecipient);
+        _newStrategy.setKeeper(keeper);
+        _newStrategy.setPendingManagement(management);
+        _newStrategy.setEmergencyAdmin(emergencyAdmin);
+
+        emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "StakeDao");
+
+        deployments[_yGauge].stakeDaoStrategy = address(_newStrategy);
         return address(_newStrategy);
     }
 
