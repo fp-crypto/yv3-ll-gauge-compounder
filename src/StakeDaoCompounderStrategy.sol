@@ -42,10 +42,6 @@ contract StakeDaoGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
             address(STAKE_DAO_GAUGE_DEPOSITOR_VAULT),
             type(uint256).max
         );
-        IERC20(address(STAKE_DAO_GAUGE_DEPOSITOR_VAULT)).safeApprove(
-            address(STAKE_DAO_LIQUIDITY_GAUGE),
-            type(uint256).max
-        );
     }
 
     /// @notice Calculate the maximum amount that can be withdrawn from all vaults
