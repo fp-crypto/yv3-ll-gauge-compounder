@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {BaseLLGaugeCompounderStrategy, IStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
+import {BaseLLGaugeCompounderStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
 import {ICoveYearnGaugeFactory} from "./interfaces/cove/ICoveYearnGaugeFactory.sol";
 import {IYSDRewardsGauge} from "./interfaces/cove/IYSDRewardsGauge.sol";
 

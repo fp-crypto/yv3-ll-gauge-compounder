@@ -4,7 +4,10 @@ pragma solidity ^0.8.18;
 import "forge-std/console2.sol";
 import {ExtendedTest} from "./ExtendedTest.sol";
 
-import {LLGaugeCompounderStrategiesFactory, OneUpGaugeCompounderStrategy} from "../../factories/LLGaugeCompounderStrategiesFactory.sol";
+import {CoveGaugeCompounderStrategyFactory, CoveGaugeCompounderStrategy} from "../../factories/CoveGaugeCompounderStrategyFactory.sol";
+import {OneUpGaugeCompounderStrategyFactory, OneUpGaugeCompounderStrategy} from "../../factories/OneUpGaugeCompounderStrategyFactory.sol";
+import {StakeDaoGaugeCompounderStrategyFactory, StakeDaoGaugeCompounderStrategy} from "../../factories/StakeDaoGaugeCompounderStrategyFactory.sol";
+import {LLGaugeCompounderStrategiesFactory} from "../../factories/LLGaugeCompounderStrategiesFactory.sol";
 import {IBaseLLGaugeCompounderStrategy as IStrategyInterface} from "../../interfaces/IBaseLLGaugeCompounderStrategy.sol";
 
 import {IStrategy} from "@tokenized-strategy/interfaces/IStrategy.sol";
@@ -61,11 +64,38 @@ contract Setup is ExtendedTest, IEvents {
         // Set decimals
         decimals = asset.decimals();
 
+        LLGaugeCompounderStrategiesFactory.LLTriple
+            memory factories = LLGaugeCompounderStrategiesFactory.LLTriple({
+                cove: address(
+                    new CoveGaugeCompounderStrategyFactory(
+                        management,
+                        performanceFeeRecipient,
+                        keeper,
+                        emergencyAdmin
+                    )
+                ),
+                oneUp: address(
+                    new OneUpGaugeCompounderStrategyFactory(
+                        management,
+                        performanceFeeRecipient,
+                        keeper,
+                        emergencyAdmin
+                    )
+                ),
+                stakeDao: address(
+                    new StakeDaoGaugeCompounderStrategyFactory(
+                        management,
+                        performanceFeeRecipient,
+                        keeper,
+                        emergencyAdmin
+                    )
+                )
+            });
+
         strategyFactory = new LLGaugeCompounderStrategiesFactory(
-            management,
-            performanceFeeRecipient,
-            keeper,
-            emergencyAdmin
+            factories.cove,
+            factories.oneUp,
+            factories.stakeDao
         );
 
         // Deploy strategy and set variables
@@ -82,20 +112,26 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(performanceFeeRecipient, "performanceFeeRecipient");
     }
 
-    function setUpStrategies() public returns (address, address, address) {
-        LLGaugeCompounderStrategiesFactory.LLStrategyTriple
+    function setUpStrategies()
+        public
+        returns (LLGaugeCompounderStrategiesFactory.LLTriple memory)
+    {
+        LLGaugeCompounderStrategiesFactory.LLTriple
             memory _strategies = strategyFactory.newStrategiesGroup(
                 address(vault),
                 "Tokenized Strategy",
                 0
             );
 
-        fixtureStrategy.push(IStrategyInterface(_strategies.coveStrategy));
-        vm.label(_strategies.coveStrategy, "CoveStrategy");
-        fixtureStrategy.push(IStrategyInterface(_strategies.oneUpStrategy));
-        vm.label(_strategies.oneUpStrategy, "OneUpStrategy");
-        fixtureStrategy.push(IStrategyInterface(_strategies.stakeDaoStrategy));
-        vm.label(_strategies.stakeDaoStrategy, "StakeDaoStrategy");
+        fixtureStrategy.push(IStrategyInterface(_strategies.cove));
+        vm.label(_strategies.cove, "CoveStrategy");
+        fixtureStrategy.push(IStrategyInterface(_strategies.oneUp));
+        vm.label(_strategies.oneUp, "OneUpStrategy");
+        fixtureStrategy.push(IStrategyInterface(_strategies.stakeDao));
+        vm.label(_strategies.stakeDao, "StakeDaoStrategy");
+
+        vm.label(IStrategyInterface(_strategies.cove).vault(), "yVault");
+        vm.label(IStrategyInterface(_strategies.cove).Y_GAUGE(), "yGauge");
 
         vm.startPrank(management);
         for (uint256 i; i < fixtureStrategy.length; ++i) {
@@ -105,11 +141,7 @@ contract Setup is ExtendedTest, IEvents {
         }
         vm.stopPrank();
 
-        return (
-            _strategies.coveStrategy,
-            _strategies.oneUpStrategy,
-            _strategies.stakeDaoStrategy
-        );
+        return _strategies;
     }
 
     function depositIntoStrategy(

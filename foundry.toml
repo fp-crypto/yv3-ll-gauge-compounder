@@ -14,3 +14,6 @@ remappings = [
     "@tokenized-strategy/=lib/tokenized-strategy/src/",
     "@periphery/=lib/tokenized-strategy-periphery/src/",
 ]
+
+[fuzz]
+runs = 1024

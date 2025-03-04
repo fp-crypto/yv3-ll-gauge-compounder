@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {BaseLLGaugeCompounderStrategy, IStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
+import {BaseLLGaugeCompounderStrategy} from "./BaseLLGaugeCompounderStrategy.sol";
 import {IYearnStrategy as IStakeDaoYearnStrategy} from "./interfaces/stakedao/IYearnStrategy.sol";
 import {ILiquidityGauge} from "./interfaces/stakedao/ILiquidityGauge.sol";
 import {IGaugeDepositorVault} from "./interfaces/stakedao/IGaugeDepositorVault.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title StakeDaoGaugeCompounderStrategy
 /// @notice Strategy for compounding rewards from StakeDAO LL gauges

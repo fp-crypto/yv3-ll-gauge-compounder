@@ -209,300 +209,137 @@ contract OperationTest is Setup {
         );
     }
 
-    // function test_profitableReportBaseThenAirdrop(
-    //     uint256 _amount,
-    //     uint256 _dyfiRewardAmount
-    // ) public {
-    //     _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
-    //     _dyfiRewardAmount = bound(
-    //         _dyfiRewardAmount,
-    //         (strategy.minAmountToSell() * 10) / 2,
-    //         Math.min(_amount / 10, maxDYFI()) // airdrop no more than 10% of the strategy value
-    //     );
-
-    //     // Deposit into strategy
-    //     mintAndDepositIntoStrategy(strategy, user, _amount);
-
-    //     assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+    function test_profitableReport_forceCurveOnly(
+        IStrategyInterface strategy,
+        uint256 _amount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+
+        // Deposit into strategy
+        mintAndDepositIntoStrategy(strategy, user, _amount);
+
+        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+
+        skip(1 weeks);
+
+        vm.mockCall(
+            address(dYFIHelper.DYFI_REDEEMER),
+            dYFIHelper.DYFI_REDEEMER.eth_required.selector,
+            abi.encode(type(uint256).max)
+        );
+
+        // Report profit
+        vm.prank(keeper);
+        (uint256 profit, uint256 loss) = strategy.report();
+
+        // Check return Values
+        assertGt(profit, 0, "!profit");
+        assertEq(loss, 0, "!loss");
+
+        skip(strategy.profitMaxUnlockTime());
+
+        uint256 balanceBefore = asset.balanceOf(user);
+
+        // Withdraw all funds
+        vm.prank(user);
+        strategy.redeem(_amount, user, user);
+
+        assertGe(
+            asset.balanceOf(user),
+            balanceBefore + _amount,
+            "!final balance"
+        );
+    }
+
+    function test_setters(
+        IStrategyInterface strategy,
+        bool _dontDumpDYfi,
+        bool _dontSwapWeth,
+        bool _useAuctions,
+        uint24 _wethToAssetSwapFee,
+        uint256 _minWethToSwap
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+
+        vm.expectRevert("!management");
+        strategy.setDontDumpDYfi(_dontDumpDYfi);
+        vm.prank(management);
+        strategy.setDontDumpDYfi(_dontDumpDYfi);
+        assertEq(_dontDumpDYfi, strategy.dontDumpDYfi());
+
+        vm.expectRevert("!management");
+        strategy.setDontSwapWeth(_dontSwapWeth);
+        vm.prank(management);
+        strategy.setDontSwapWeth(_dontSwapWeth);
+        assertEq(_dontSwapWeth, strategy.dontSwapWeth());
+
+        vm.expectRevert("!management");
+        strategy.setUseAuctions(_useAuctions);
+        vm.prank(management);
+        strategy.setUseAuctions(_useAuctions);
+        assertEq(_useAuctions, strategy.useAuctions());
+
+        vm.expectRevert("!management");
+        strategy.setWethToAssetSwapFee(_wethToAssetSwapFee);
+        vm.prank(management);
+        strategy.setWethToAssetSwapFee(_wethToAssetSwapFee);
+        assertEq(
+            _wethToAssetSwapFee,
+            strategy.uniFees(strategy.WETH(), strategy.asset())
+        );
+        assertEq(
+            _wethToAssetSwapFee,
+            strategy.uniFees(strategy.asset(), strategy.WETH())
+        );
+
+        vm.expectRevert("!management");
+        strategy.setMinWethToSwap(_minWethToSwap);
+        vm.prank(management);
+        strategy.setMinWethToSwap(_minWethToSwap);
+        assertEq(_minWethToSwap, strategy.minAmountToSell());
+    }
+
+    function test_tendTrigger(
+        IStrategyInterface strategy,
+        uint256 _amount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+
+        (bool trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
+
+        // Deposit into strategy
+        mintAndDepositIntoStrategy(strategy, user, _amount);
 
-    //     // Earn Interest
-    //     skip(1 days);
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (uint256 profit, uint256 loss) = strategy.report();
+        // Skip some time
+        skip(1 hours);
 
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
-    //     skip(strategy.profitMaxUnlockTime());
+        vm.prank(keeper);
+        strategy.report();
 
-    //     airdropDYFI(address(strategy), _dyfiRewardAmount);
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (profit, loss) = strategy.report();
+        // Unlock Profits
+        skip(strategy.profitMaxUnlockTime());
 
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
 
-    //     skip(strategy.profitMaxUnlockTime());
+        vm.prank(user);
+        strategy.redeem(_amount, user, user);
 
-    //     uint256 balanceBefore = asset.balanceOf(user);
-
-    //     // Withdraw all funds
-    //     vm.prank(user);
-    //     strategy.redeem(_amount, user, user);
-
-    //     assertGe(
-    //         asset.balanceOf(user),
-    //         balanceBefore + _amount,
-    //         "!final balance"
-    //     );
-    // }
-
-    // function test_profitableReportAirdropThenBase(
-    //     uint256 _amount,
-    //     uint256 _dyfiRewardAmount
-    // ) public {
-    //     _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
-    //     _dyfiRewardAmount = bound(
-    //         _dyfiRewardAmount,
-    //         (strategy.minAmountToSell() * 10) / 2,
-    //         Math.min(_amount / 10, maxDYFI()) // airdrop no more than 10% of the strategy value
-    //     );
-
-    //     // Deposit into strategy
-    //     mintAndDepositIntoStrategy(strategy, user, _amount);
-
-    //     assertEq(strategy.totalAssets(), _amount, "!totalAssets");
-
-    //     airdropDYFI(address(strategy), _dyfiRewardAmount);
-
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (uint256 profit, uint256 loss) = strategy.report();
-
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
-
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (profit, loss) = strategy.report();
-
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
-
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     uint256 balanceBefore = asset.balanceOf(user);
-
-    //     // Withdraw all funds
-    //     vm.prank(user);
-    //     strategy.redeem(_amount, user, user);
-
-    //     assertGe(
-    //         asset.balanceOf(user),
-    //         balanceBefore + _amount,
-    //         "!final balance"
-    //     );
-    // }
-
-    // function test_profitableReportAirdropThenBase_DudesVersion(
-    //     uint256 _amount
-    // ) public {
-    //     _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
-    //     uint256 _dyfiRewardAmount = Math.min(_amount / 10, maxDYFI()); // airdrop no more than 10% of the strategy value
-
-    //     // Deposit into strategy
-    //     mintAndDepositIntoStrategy(strategy, user, _amount);
-
-    //     assertEq(strategy.totalAssets(), _amount, "!totalAssets");
-
-    //     skip(strategy.profitMaxUnlockTime());
-    //     airdropDYFI(address(strategy), _dyfiRewardAmount);
-
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (uint256 profitWithAirdrop, uint256 loss) = strategy.report();
-
-    //     // Check return Values
-    //     assertGt(profitWithAirdrop, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
-
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     uint256 profit;
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (profit, loss) = strategy.report();
-
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
-    //     assertGt(profitWithAirdrop, profit, "!airdropProfit");
-
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     uint256 balanceBefore = asset.balanceOf(user);
-
-    //     // Withdraw all funds
-    //     vm.prank(user);
-    //     strategy.redeem(_amount, user, user);
-
-    //     assertGe(
-    //         asset.balanceOf(user),
-    //         balanceBefore + _amount,
-    //         "!final balance"
-    //     );
-    // }
-
-    // function test_profitableReportOnlyBase(uint256 _amount) public {
-    //     _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
-
-    //     // Deposit into strategy
-    //     mintAndDepositIntoStrategy(strategy, user, _amount);
-
-    //     assertEq(strategy.totalAssets(), _amount, "!totalAssets");
-
-    //     skip(1 days);
-
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (uint256 profit, uint256 loss) = strategy.report();
-
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
-
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     uint256 balanceBefore = asset.balanceOf(user);
-
-    //     // Withdraw all funds
-    //     vm.prank(user);
-    //     strategy.redeem(_amount, user, user);
-
-    //     assertGe(
-    //         asset.balanceOf(user),
-    //         balanceBefore + _amount,
-    //         "!final balance"
-    //     );
-    // }
-
-    // function test_profitableReportOnlyAirdrop(
-    //     uint256 _amount,
-    //     uint256 _dyfiRewardAmount
-    // ) public {
-    //     _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
-    //     _dyfiRewardAmount = bound(
-    //         _dyfiRewardAmount,
-    //         (strategy.minAmountToSell() * 10) / 2,
-    //         Math.min(_amount / 10, maxDYFI()) // airdrop no more than 10% of the strategy value
-    //     );
-
-    //     // Deposit into strategy
-    //     mintAndDepositIntoStrategy(strategy, user, _amount);
-
-    //     assertEq(strategy.totalAssets(), _amount, "!totalAssets");
-
-    //     airdropDYFI(address(strategy), _dyfiRewardAmount);
-
-    //     // Report profit
-    //     vm.prank(keeper);
-    //     (uint256 profit, uint256 loss) = strategy.report();
-
-    //     // Check return Values
-    //     assertGt(profit, 0, "!profit");
-    //     assertEq(loss, 0, "!loss");
-
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     uint256 balanceBefore = asset.balanceOf(user);
-
-    //     // Withdraw all funds
-    //     vm.prank(user);
-    //     strategy.redeem(_amount, user, user);
-
-    //     assertGe(
-    //         asset.balanceOf(user),
-    //         balanceBefore + _amount,
-    //         "!final balance"
-    //     );
-    // }
-
-    // // function test_setters(
-    // //     uint96 _minEulToSwap,
-    // //     uint24 _eulToWethSwapFee,
-    // //     uint24 _wethToAssetSwapFee
-    // // ) public {
-    // //     vm.expectRevert("!management");
-    // //     strategy.setMinEulToSwap(uint256(_minEulToSwap));
-    // //     vm.prank(management);
-    // //     strategy.setMinEulToSwap(uint256(_minEulToSwap));
-    // //     assertEq(uint256(_minEulToSwap), strategy.minAmountToSell());
-
-    // //     vm.expectRevert("!management");
-    // //     strategy.setEulToWethSwapFee(_eulToWethSwapFee);
-    // //     vm.prank(management);
-    // //     strategy.setEulToWethSwapFee(_eulToWethSwapFee);
-    // //     assertEq(
-    // //         _eulToWethSwapFee,
-    // //         strategy.uniFees(strategy.EUL(), strategy.WETH())
-    // //     );
-
-    // //     vm.expectRevert("!management");
-    // //     strategy.setWethToAssetSwapFee(_wethToAssetSwapFee);
-    // //     vm.prank(management);
-    // //     strategy.setWethToAssetSwapFee(_wethToAssetSwapFee);
-    // //     assertEq(
-    // //         _wethToAssetSwapFee,
-    // //         strategy.uniFees(strategy.WETH(), strategy.asset())
-    // //     );
-    // // }
-
-    // function test_tendTrigger(uint256 _amount) public {
-    //     _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
-
-    //     (bool trigger, ) = strategy.tendTrigger();
-    //     assertTrue(!trigger);
-
-    //     // Deposit into strategy
-    //     mintAndDepositIntoStrategy(strategy, user, _amount);
-
-    //     (trigger, ) = strategy.tendTrigger();
-    //     assertTrue(!trigger);
-
-    //     // Skip some time
-    //     skip(1 days);
-
-    //     (trigger, ) = strategy.tendTrigger();
-    //     assertTrue(!trigger);
-
-    //     vm.prank(keeper);
-    //     strategy.report();
-
-    //     (trigger, ) = strategy.tendTrigger();
-    //     assertTrue(!trigger);
-
-    //     // Unlock Profits
-    //     skip(strategy.profitMaxUnlockTime());
-
-    //     (trigger, ) = strategy.tendTrigger();
-    //     assertTrue(!trigger);
-
-    //     vm.prank(user);
-    //     strategy.redeem(_amount, user, user);
-
-    //     (trigger, ) = strategy.tendTrigger();
-    //     assertTrue(!trigger);
-    // }
+        (trigger, ) = strategy.tendTrigger();
+        assertTrue(!trigger);
+    }
 
     // function test_strategyFactoryUnique() public {
     //     address vault = strategy.vault();

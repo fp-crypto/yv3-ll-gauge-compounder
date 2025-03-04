@@ -15,6 +15,8 @@ interface IBaseLLGaugeCompounderStrategy is
                                  VIEWS
     //////////////////////////////////////////////////////////////*/
 
+   function Y_GAUGE() external view returns (address);
+
     /// @notice The Wrapped Ether contract address
     function WETH() external view returns (address);
 

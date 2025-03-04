@@ -2,7 +2,6 @@
 pragma solidity ^0.8.18;
 
 import {dYFIHelper} from "./libraries/dYFIHelper.sol";
-import {IWETH} from "./interfaces/IWETH.sol";
 import {IGauge} from "./interfaces/veyfi/IGauge.sol";
 
 import {Base4626Compounder, ERC20, IStrategy} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
