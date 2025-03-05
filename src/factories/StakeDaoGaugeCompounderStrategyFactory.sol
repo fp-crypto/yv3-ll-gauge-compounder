@@ -4,9 +4,9 @@ pragma solidity ^0.8.18;
 import {BaseLLGaugeCompounderStrategyFactory, IBaseLLGaugeCompounderStrategy} from "./BaseLLGaugeCompounderStrategyFactory.sol";
 import {StakeDaoGaugeCompounderStrategy} from "../StakeDaoGaugeCompounderStrategy.sol";
 
-/// @title BaseGaugeCompounderStrategyFactory
-/// @notice Abstract base factory contract for deploying Liquid Locker gauge compounder strategies
-/// @dev Provides common functionality for strategy factories to be extended by specific implementations
+/// @title StakeDaoGaugeCompounderStrategyFactory
+/// @notice Factory contract for deploying StakeDAO Liquid Locker gauge compounder strategies
+/// @dev Extends BaseLLGaugeCompounderStrategyFactory to create StakeDAO-specific strategies
 contract StakeDaoGaugeCompounderStrategyFactory is
     BaseLLGaugeCompounderStrategyFactory
 {
@@ -29,12 +29,13 @@ contract StakeDaoGaugeCompounderStrategyFactory is
         )
     {}
 
-    /// @notice Deploys a new strategy for a given yVault
-    /// @dev Abstract function to be implemented by derived factories
+    /// @notice Deploys a new StakeDAO strategy for a given yVault
+    /// @dev Implements the abstract function from BaseLLGaugeCompounderStrategyFactory
     /// @param _yVault The yearn vault address to create a strategy for
     /// @param _name The base name for the strategy token
-    /// @param _assetSwapFee Uniswap pool fee for asset swaps
-    /// @return Implementation of IBaseLLGaugeCompounderStrategy
+    /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
+    /// @return address Address of the newly deployed StakeDAO strategy
+    /// @dev Reverts if the vault has no gauge or if a strategy already exists for the gauge
     function newStrategy(
         address _yVault,
         string calldata _name,
@@ -44,7 +45,6 @@ contract StakeDaoGaugeCompounderStrategyFactory is
         require(_yGauge != address(0), "no gauge");
         require(deployments[_yGauge] == address(0), "exists");
 
-        // tokenized strategies available setters.
         IBaseLLGaugeCompounderStrategy _newStrategy = IBaseLLGaugeCompounderStrategy(
                 address(
                     new StakeDaoGaugeCompounderStrategy(
@@ -61,7 +61,11 @@ contract StakeDaoGaugeCompounderStrategyFactory is
         _newStrategy.setEmergencyAdmin(emergencyAdmin);
 
         deployments[_yGauge] = address(_newStrategy);
-        emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "cove");
+        emit NewStrategy(
+            address(_newStrategy),
+            _newStrategy.asset(),
+            "stakedao"
+        );
         return address(_newStrategy);
     }
 }

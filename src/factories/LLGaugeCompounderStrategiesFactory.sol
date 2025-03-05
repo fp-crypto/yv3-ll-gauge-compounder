@@ -8,26 +8,37 @@ import {IRegistry} from "../interfaces/veyfi/IRegistry.sol";
 /// @title LLGaugeCompounderStrategiesFactory
 /// @notice Factory contract for deploying Liquid Locker gauge compounder strategies
 /// @dev Handles deployment and initialization of strategies for different LL providers (Cove, 1UP, StakeDAO)
+/// @dev Acts as a coordinator for the individual provider factories
 contract LLGaugeCompounderStrategiesFactory {
+    /// @notice Registry contract that maps yVaults to their corresponding gauges
+    /// @dev Used to look up gauge addresses for yVaults
     IRegistry public constant GAUGE_REGISTRY =
         IRegistry(0x1D0fdCb628b2f8c0e22354d45B3B2D4cE9936F8B);
-    address public immutable COVE_FACTORY;
-    address public immutable ONE_UP_FACTORY;
-    address public immutable STAKE_DAO_FACTORY;
 
-    address public management;
-    address public performanceFeeRecipient;
-    address public keeper;
+    /// @notice Address of the Cove strategy factory
+    /// @dev Immutable reference to the factory for Cove strategies
+    address private immutable COVE_FACTORY;
 
-    /// @notice Structure to hold related strategy deployments for a single gauge
-    /// @dev Groups together Cove, 1UP, and StakeDAO strategies for the same gauge
+    /// @notice Address of the 1UP strategy factory
+    /// @dev Immutable reference to the factory for 1UP strategies
+    address private immutable ONE_UP_FACTORY;
+
+    /// @notice Address of the StakeDAO strategy factory
+    /// @dev Immutable reference to the factory for StakeDAO strategies
+    address private immutable STAKE_DAO_FACTORY;
+
+    /// @notice Structure to hold related deployments for a single gauge
+    /// @dev Groups together Cove, 1UP, and StakeDAO contracts for the same gauge
     struct LLTriple {
         address cove;
         address oneUp;
         address stakeDao;
     }
 
-    /// @notice Initializes the factory with the core protocol roles
+    /// @notice Initializes the factory with addresses of the individual provider factories
+    /// @param coveGaugeCompounderStrategyFactory Address of the Cove strategy factory
+    /// @param oneUpGaugeCompounderStrategyFactory Address of the 1UP strategy factory
+    /// @param stakeDaoGaugeCompounderStrategyFactory Address of the StakeDAO strategy factory
     constructor(
         address coveGaugeCompounderStrategyFactory,
         address oneUpGaugeCompounderStrategyFactory,
@@ -42,13 +53,14 @@ contract LLGaugeCompounderStrategiesFactory {
     /// @dev Deploys Cove, 1UP, and StakeDAO strategies for the given vault
     /// @param _yVault The yearn vault address to create strategies for
     /// @param _name The base name for the strategy tokens
-    /// @param _assetSwapFee Uniswap pool fee for asset swaps
-    /// @return . Struct containing addresses of all deployed strategies
+    /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
+    /// @return LLTriple Struct containing addresses of all deployed strategies
+    /// @dev Reverts if the vault doesn't have a corresponding gauge
     function newStrategiesGroup(
         address _yVault,
         string calldata _name,
         uint24 _assetSwapFee
-    ) external virtual returns (LLTriple memory) {
+    ) external returns (LLTriple memory) {
         address _yGauge = GAUGE_REGISTRY.vault_gauge_map(_yVault);
         require(_yGauge != address(0), "!gauge");
 
@@ -64,7 +76,9 @@ contract LLGaugeCompounderStrategiesFactory {
             });
     }
 
-    function factories() public view returns (LLTriple memory) {
+    /// @notice Returns the addresses of all individual provider factories
+    /// @return LLTriple Struct containing addresses of the Cove, 1UP, and StakeDAO factories
+    function factories() external view returns (LLTriple memory) {
         return
             LLTriple({
                 cove: COVE_FACTORY,
@@ -73,7 +87,13 @@ contract LLGaugeCompounderStrategiesFactory {
             });
     }
 
-    function deployments(address _yGauge) public view returns (LLTriple memory) {
+    /// @notice Returns the addresses of all strategies deployed for a given gauge
+    /// @param _yGauge Address of the yearn gauge
+    /// @return LLTriple Struct containing addresses of the Cove, 1UP, and StakeDAO strategies
+    /// @dev Returns zero addresses if no strategies have been deployed for the gauge
+    function deployments(
+        address _yGauge
+    ) public view returns (LLTriple memory) {
         return
             LLTriple({
                 cove: BaseLLGaugeCompounderStrategyFactory(COVE_FACTORY)
@@ -90,6 +110,7 @@ contract LLGaugeCompounderStrategiesFactory {
     /// @dev Verifies if the strategy address matches the recorded deployment for its asset
     /// @param _strategy Address of the strategy to check
     /// @return bool True if the strategy was deployed by this factory, false otherwise
+    /// @dev Returns false for zero address or if the strategy's vault doesn't have a gauge
     function isDeployedStrategy(
         address _strategy
     ) external view returns (bool) {
