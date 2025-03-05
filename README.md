@@ -1,10 +1,14 @@
-# Tokenized Strategy Mix for Yearn V3 strategies
+# Yearn V3 Liquid Locker (LL) Gauge Compounder Strategies
 
-This repo will allow you to write, test and deploy V3 "Tokenized Strategies" using [Foundry](https://book.getfoundry.sh/).
+This repository contains implementations of Yearn V3 strategies for compounding rewards from various Liquid Locker (LL) gauge providers, including:
 
-You will only need to override the three functions in Strategy.sol of `_deployFunds`, `_freeFunds` and `_harvestAndReport`. With the option to also override `_tend`, `_tendTrigger`, `availableDepositLimit`, `availableWithdrawLimit` and `_emergencyWithdraw` if desired.
+- Cove Finance
+- 1UP (OneUp)
+- StakeDAO
 
-For a more complete overview of how the Tokenized Strategies work please visit the [TokenizedStrategy Repo](https://github.com/yearn/tokenized-strategy).
+These strategies automatically compound rewards from LL gauges back into the underlying vault tokens, maximizing yield for users.
+
+The repository is built on Yearn's V3 Tokenized Strategy framework using [Foundry](https://book.getfoundry.sh/).
 
 ## How to start
 
@@ -17,7 +21,7 @@ NOTE: If you are on a windows machine it is recommended to use [WSL](https://lea
 ### Clone this repository
 
 ```sh
-git clone --recursive https://github.com/yearn/tokenized-strategy-foundry-mix
+git clone --recursive https://github.com/fp-crypto/yv3-ll-gauge-compounder
 
 cd tokenized-strategy-foundry-mix
 
@@ -46,24 +50,45 @@ Run tests
 make test
 ```
 
-## Strategy Writing
+## Repository Structure
 
-For a complete guide to creating a Tokenized Strategy please visit: https://docs.yearn.fi/developers/v3/strategy_writing_guide
+The repository is organized as follows:
+
+- `src/`: Contains the core strategy implementations
+  - `BaseLLGaugeCompounderStrategy.sol`: Abstract base contract for all LL gauge compounder strategies
+  - `CoveCompounderStrategy.sol`: Implementation for Cove Finance gauges
+  - `OneUpCompounderStrategy.sol`: Implementation for 1UP gauges
+  - `StakeDaoCompounderStrategy.sol`: Implementation for StakeDAO gauges
+  - `factories/`: Contains factory contracts for deploying strategies
+    - `BaseLLGaugeCompounderStrategy.sol`: Abstract base factory
+    - `LLGaugeCompounderStrategiesFactory.sol`: Factory for deploying all three strategy types
+
+For a complete guide to understanding Yearn's Tokenized Strategy framework, please visit: https://docs.yearn.fi/developers/v3/strategy_writing_guide
 
 NOTE: Compiler defaults to 8.23 but it can be adjusted in the foundry toml.
 
+## How It Works
+
+These strategies work by:
+
+1. Accepting deposits of Yearn vault tokens
+2. Staking these tokens in the corresponding LL gauge (Cove, 1UP, or StakeDAO)
+3. Periodically harvesting rewards (typically dYFI or other tokens)
+4. Swapping these rewards back to the underlying asset
+5. Depositing the compounded assets back into the Yearn vault
+6. Restaking the received vault tokens in the gauge
+
+This cycle creates a compounding effect that maximizes returns for users while maintaining the security and liquidity benefits of the underlying Yearn vault.
+
 ## Testing
 
-Due to the nature of the BaseStrategy utilizing an external contract for the majority of its logic, the default interface for any tokenized strategy will not allow proper testing of all functions. Testing of your Strategy should utilize the pre-built [IStrategyInterface](https://github.com/yearn/tokenized-strategy-foundry-mix/blob/master/src/interfaces/IStrategyInterface.sol) to cast any deployed strategy through for testing, as seen in the Setup example. You can add any external functions that you add for your specific strategy to this interface to be able to test all functions with one variable.
+The test suite covers all three strategy implementations and their factory contracts. Due to the nature of the BaseStrategy utilizing an external contract for the majority of its logic, testing uses the pre-built [IStrategyInterface](https://github.com/yearn/tokenized-strategy-foundry-mix/blob/master/src/interfaces/IStrategyInterface.sol) to cast any deployed strategy for testing.
 
 Example:
 
 ```solidity
-Strategy _strategy = new Strategy(asset, name);
-IStrategyInterface strategy =  IStrategyInterface(address(_strategy));
-```
-
-Due to the permissionless nature of the tokenized Strategies, all tests are written without integration with any meta vault funding it. While those tests can be added, all V3 vaults utilize the ERC-4626 standard for deposit/withdraw and accounting, so they can be plugged in easily to any number of different vaults with the same `asset.`
+CoveCompounderStrategy _strategy = new CoveCompounderStrategy(asset, name);
+IStrategyInterface strategy = IStrategyInterface(address(_strategy));
 
 Tests run in fork environment, you need to complete the full installation and setup to be able to run these commands.
 
