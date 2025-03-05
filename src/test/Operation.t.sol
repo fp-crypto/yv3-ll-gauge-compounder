@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console2.sol";
-import {Setup, ERC20, IStrategyInterface} from "./utils/Setup.sol";
+import {Setup, ERC20, IStrategyInterface, IStrategy} from "./utils/Setup.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {dYFIHelper} from "../libraries/dYFIHelper.sol";
 
@@ -13,9 +13,10 @@ contract OperationTest is Setup {
 
     function test_setupStrategyOK(IStrategyInterface strategy) public {
         vm.assume(_isFixtureStrategy(strategy));
+
         console2.log("address of strategy", address(strategy));
         assertTrue(address(0) != address(strategy));
-        assertEq(strategy.asset(), address(asset));
+        assertEq(strategy.asset(), IStrategy(strategy.vault()).asset());
         assertEq(strategy.management(), management);
         assertEq(strategy.performanceFeeRecipient(), performanceFeeRecipient);
         assertEq(strategy.keeper(), keeper);
@@ -27,7 +28,12 @@ contract OperationTest is Setup {
         uint256 _amount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
@@ -65,7 +71,12 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,
             strategy.minAmountToSell(),
@@ -111,7 +122,12 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,
             strategy.minAmountToSell(),
@@ -163,7 +179,12 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,
             strategy.minAmountToSell(),
@@ -214,7 +235,12 @@ contract OperationTest is Setup {
         uint256 _amount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
@@ -305,7 +331,12 @@ contract OperationTest is Setup {
         uint256 _amount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
 
         (bool trigger, ) = strategy.tendTrigger();
         assertTrue(!trigger);
@@ -317,7 +348,7 @@ contract OperationTest is Setup {
         assertTrue(!trigger);
 
         // Skip some time
-        skip(1 hours);
+        skip(10 minutes);
 
         (trigger, ) = strategy.tendTrigger();
         assertTrue(!trigger);
@@ -341,9 +372,10 @@ contract OperationTest is Setup {
         assertTrue(!trigger);
     }
 
-    // function test_strategyFactoryUnique() public {
-    //     address vault = strategy.vault();
-    //     vm.expectRevert("exists");
-    //     strategyFactory.newStrategy(vault, "", 0);
-    // }
+    function test_strategyFactoryUnique(IStrategyInterface strategy) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        address vault = strategy.vault();
+        vm.expectRevert("exists");
+        strategyFactory.newStrategiesGroup(vault, "", 0);
+    }
 }

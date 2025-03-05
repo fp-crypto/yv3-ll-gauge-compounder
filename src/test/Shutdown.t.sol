@@ -13,7 +13,12 @@ contract ShutdownTest is Setup {
         uint256 _amount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
@@ -48,7 +53,12 @@ contract ShutdownTest is Setup {
         uint256 _amount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
-        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);

@@ -4,9 +4,9 @@ pragma solidity ^0.8.18;
 import "forge-std/console2.sol";
 import {ExtendedTest} from "./ExtendedTest.sol";
 
-import {CoveGaugeCompounderStrategyFactory, CoveGaugeCompounderStrategy} from "../../factories/CoveGaugeCompounderStrategyFactory.sol";
-import {OneUpGaugeCompounderStrategyFactory, OneUpGaugeCompounderStrategy} from "../../factories/OneUpGaugeCompounderStrategyFactory.sol";
-import {StakeDaoGaugeCompounderStrategyFactory, StakeDaoGaugeCompounderStrategy} from "../../factories/StakeDaoGaugeCompounderStrategyFactory.sol";
+import {CoveGaugeCompounderStrategyFactory} from "../../factories/CoveGaugeCompounderStrategyFactory.sol";
+import {OneUpGaugeCompounderStrategyFactory} from "../../factories/OneUpGaugeCompounderStrategyFactory.sol";
+import {StakeDaoGaugeCompounderStrategyFactory} from "../../factories/StakeDaoGaugeCompounderStrategyFactory.sol";
 import {LLGaugeCompounderStrategiesFactory} from "../../factories/LLGaugeCompounderStrategiesFactory.sol";
 import {IBaseLLGaugeCompounderStrategy as IStrategyInterface} from "../../interfaces/IBaseLLGaugeCompounderStrategy.sol";
 
@@ -14,6 +14,7 @@ import {IStrategy} from "@tokenized-strategy/interfaces/IStrategy.sol";
 import {IEvents} from "@tokenized-strategy/interfaces/IEvents.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 interface IFactory {
     function governance() external view returns (address);
@@ -24,10 +25,6 @@ interface IFactory {
 }
 
 contract Setup is ExtendedTest, IEvents {
-    // Contract instances that we will use repeatedly.
-    ERC20 public asset;
-    IStrategy public vault;
-
     IStrategyInterface[] public fixtureStrategy;
 
     LLGaugeCompounderStrategiesFactory public strategyFactory;
@@ -45,24 +42,17 @@ contract Setup is ExtendedTest, IEvents {
     address public factory;
 
     // Integer variables that will be used repeatedly.
-    uint256 public decimals;
     uint256 public MAX_BPS = 10_000;
 
-    uint256 public maxFuzzAmount = 1_000e18;
-    uint256 public minFuzzAmount = 1e18;
+    mapping(address => uint256) public maxFuzzAmount;
+    mapping(address => uint256) public minFuzzAmount;
 
     // Default profit max unlock time is set for 10 days
     uint256 public profitMaxUnlockTime = 10 days;
 
     function setUp() public virtual {
         _setTokenAddrs();
-
-        // Set asset
-        asset = ERC20(tokenAddrs["WETH"]);
-        vault = IStrategyInterface(address(tokenAddrs["yvWETH-2"]));
-
-        // Set decimals
-        decimals = asset.decimals();
+        _setFuzzLimits();
 
         LLGaugeCompounderStrategiesFactory.LLTriple
             memory factories = LLGaugeCompounderStrategiesFactory.LLTriple({
@@ -99,29 +89,31 @@ contract Setup is ExtendedTest, IEvents {
         );
 
         // Deploy strategy and set variables
-        setUpStrategies();
+        setUpStrategies(IStrategy(tokenAddrs["yvWETH-2"]), 0);
+        setUpStrategies(IStrategy(tokenAddrs["yvUSDC-1"]), 500);
+        //setUpStrategies(IStrategy(tokenAddrs["yvDAI-2"]), 500);
 
         factory = fixtureStrategy[0].FACTORY();
 
         // label all the used addresses for traces
         vm.label(keeper, "keeper");
         vm.label(factory, "factory");
-        vm.label(address(asset), "asset");
-        vm.label(address(vault), "vault");
         vm.label(management, "management");
         vm.label(performanceFeeRecipient, "performanceFeeRecipient");
     }
 
-    function setUpStrategies()
-        public
-        returns (LLGaugeCompounderStrategiesFactory.LLTriple memory)
-    {
+    function setUpStrategies(
+        IStrategy vault,
+        uint24 wethAssetSwapFee
+    ) public returns (LLGaugeCompounderStrategiesFactory.LLTriple memory) {
         LLGaugeCompounderStrategiesFactory.LLTriple
             memory _strategies = strategyFactory.newStrategiesGroup(
                 address(vault),
                 "Tokenized Strategy",
-                0
+                wethAssetSwapFee
             );
+
+        uint256 i = fixtureStrategy.length;
 
         fixtureStrategy.push(IStrategyInterface(_strategies.cove));
         vm.label(_strategies.cove, "CoveStrategy");
@@ -134,7 +126,7 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(IStrategyInterface(_strategies.cove).Y_GAUGE(), "yGauge");
 
         vm.startPrank(management);
-        for (uint256 i; i < fixtureStrategy.length; ++i) {
+        for (; i < fixtureStrategy.length; ++i) {
             IStrategy _strategy = fixtureStrategy[i];
             _strategy.acceptManagement();
             _strategy.setProfitMaxUnlockTime(1 hours);
@@ -149,6 +141,8 @@ contract Setup is ExtendedTest, IEvents {
         address _user,
         uint256 _amount
     ) public {
+        ERC20 asset = ERC20(_strategy.asset());
+
         vm.prank(_user);
         asset.approve(address(_strategy), _amount);
 
@@ -161,7 +155,7 @@ contract Setup is ExtendedTest, IEvents {
         address _user,
         uint256 _amount
     ) public {
-        airdrop(asset, _user, _amount);
+        airdrop(ERC20(_strategy.asset()), _user, _amount);
         depositIntoStrategy(_strategy, _user, _amount);
     }
 
@@ -217,15 +211,32 @@ contract Setup is ExtendedTest, IEvents {
     // }
 
     function _setTokenAddrs() internal {
-        tokenAddrs["WETH"] = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-        tokenAddrs["USDC"] = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-        tokenAddrs["yvWETH-2"] = 0xAc37729B76db6438CE62042AE1270ee574CA7571;
-        tokenAddrs["dYFI"] = 0x41252E8691e964f7DE35156B68493bAb6797a275;
+        _setTokenAddr("WETH", 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        _setTokenAddr("USDC", 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        _setTokenAddr("DAI", 0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        _setTokenAddr("yvWETH-2", 0xAc37729B76db6438CE62042AE1270ee574CA7571);
+        _setTokenAddr("yvUSDC-1", 0xBe53A109B494E5c9f97b9Cd39Fe969BE68BF6204);
+        _setTokenAddr("yvDAI-2", 0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e);
+        _setTokenAddr("dYFI", 0x41252E8691e964f7DE35156B68493bAb6797a275);
+    }
+
+    function _setTokenAddr(string memory symbol, address addr) internal {
+        tokenAddrs[symbol] = addr;
+        vm.label(addr, symbol);
+    }
+
+    function _setFuzzLimits() internal {
+        maxFuzzAmount[tokenAddrs["WETH"]] = 1_000e18;
+        minFuzzAmount[tokenAddrs["WETH"]] = 1e18;
+        maxFuzzAmount[tokenAddrs["USDC"]] = 1_000_000e6;
+        minFuzzAmount[tokenAddrs["USDC"]] = 1000e6;
+        maxFuzzAmount[tokenAddrs["DAI"]] = 1_000_000e18;
+        minFuzzAmount[tokenAddrs["DAI"]] = 1000e18;
     }
 
     function _isFixtureStrategy(
         IStrategyInterface _strategy
-    ) internal returns (bool) {
+    ) internal view returns (bool) {
         for (uint256 i; i < fixtureStrategy.length; ++i) {
             if (fixtureStrategy[i] == _strategy) return true;
         }

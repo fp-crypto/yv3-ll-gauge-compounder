@@ -14,6 +14,7 @@ contract FunctionSignatureTest is Setup {
     // Does not check functions that are strategy dependant and will be checked in other tests
     function test_functionCollisions(IStrategyInterface strategy) public {
         vm.assume(_isFixtureStrategy(strategy));
+        ERC20 asset = ERC20(strategy.asset());
 
         uint256 wad = 1e18;
         vm.expectRevert("initialized");
