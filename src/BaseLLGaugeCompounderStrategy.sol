@@ -3,8 +3,9 @@ pragma solidity ^0.8.18;
 
 import {dYFIHelper} from "./libraries/dYFIHelper.sol";
 import {IGauge} from "./interfaces/veyfi/IGauge.sol";
+import {IAuction} from "./interfaces/IAuction.sol";
 
-import {Base4626Compounder, ERC20, IStrategy} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
+import {Base4626Compounder, ERC20, IStrategy, SafeERC20} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
 import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 
 /// @title Base Liquid Locker Gauge Compounder Strategy
@@ -15,6 +16,8 @@ abstract contract BaseLLGaugeCompounderStrategy is
     Base4626Compounder,
     UniswapV3Swapper
 {
+    using SafeERC20 for ERC20;
+
     /// @notice The Wrapped Ether contract address
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
@@ -30,6 +33,12 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev When true, uses auction-based swapping mechanism instead of Uniswap
     bool public useAuctions;
 
+    /// @notice Address of the auction contract used for token swaps
+    /// @dev Used when useAuctions is true
+    address public auction;
+
+    /// @notice The Yearn gauge contract this strategy interacts with
+    /// @dev Immutable reference to the gauge that provides rewards
     IGauge public immutable Y_GAUGE;
 
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
@@ -87,13 +96,13 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice Callback function for Balancer flash loans
     /// @dev Called by Balancer Vault during flash loan execution
-    /// @param tokens Array of token addresses for the flash loan
-    /// @param amounts Array of amounts for each token
+    /// @param . Array of token addresses for the flash loan
+    /// @param . Array of amounts for each token
     /// @param feeAmounts Array of fee amounts for each token
     /// @param userData Additional data passed through the flash loan
     function receiveFlashLoan(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
+        address[] calldata /*tokens*/,
+        uint256[] calldata /*amounts*/,
         uint256[] calldata feeAmounts,
         bytes calldata userData
     ) external {
@@ -139,7 +148,43 @@ abstract contract BaseLLGaugeCompounderStrategy is
         minAmountToSell = _minWethToSwap;
     }
 
-    /// @notice Allows the contract to receive ETH
-    /// @dev Required for WETH unwrapping
+    /// @notice Sets the auction contract address
+    /// @param _auction Address of the auction contract
+    /// @dev Can only be called by management
+    /// @dev Verifies the auction contract is compatible with this strategy
+    function setAuction(address _auction) external onlyManagement {
+        if (_auction != address(0)) {
+            require(IAuction(_auction).want() == address(asset), "!want");
+            require(
+                IAuction(_auction).receiver() == address(this),
+                "!receiver"
+            );
+        }
+        auction = _auction;
+    }
+
+    /// @notice Initiates an auction for a given token
+    /// @dev Can only be called by keepers when auctions are enabled
+    /// @param _from The token to be sold in the auction
+    /// @return . The available amount for bidding on in the auction.
+    function kickAuction(
+        address _from
+    ) external virtual onlyKeepers returns (uint256) {
+        require(useAuctions && auction != address(0), "!auction");
+        return _kickAuction(_from);
+    }
+
+    /// @notice Internal function to initiate an auction
+    /// @dev Transfers tokens to the auction contract and starts the auction
+    /// @param _from The token to be sold in the auction
+    /// @return . The available amount for bidding on in the auction.
+    function _kickAuction(address _from) internal virtual returns (uint256) {
+        require(_from != address(asset) && _from != address(vault), "!kick");
+        uint256 _balance = ERC20(_from).balanceOf(address(this));
+        ERC20(_from).safeTransfer(auction, _balance);
+        return IAuction(auction).kick(_from);
+    }
+
+    /// @dev Required for WETH unwrapping operations
     receive() external payable {}
 }
