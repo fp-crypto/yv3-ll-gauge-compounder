@@ -88,6 +88,11 @@ abstract contract BaseLLGaugeCompounderStrategy is
                 0
             );
         }
+
+        //uint256 _assetBalance = balanceOfAsset();
+        //if (_assetBalance != 0) {
+        //    _deployFunds(_assetBalance);
+        //}
     }
 
     /// @notice Claims dYFI rewards from the gauge

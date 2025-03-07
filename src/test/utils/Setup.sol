@@ -9,6 +9,7 @@ import {OneUpGaugeCompounderStrategyFactory} from "../../factories/OneUpGaugeCom
 import {StakeDaoGaugeCompounderStrategyFactory} from "../../factories/StakeDaoGaugeCompounderStrategyFactory.sol";
 import {LLGaugeCompounderStrategiesFactory} from "../../factories/LLGaugeCompounderStrategiesFactory.sol";
 import {IBaseLLGaugeCompounderStrategy as IStrategyInterface} from "../../interfaces/IBaseLLGaugeCompounderStrategy.sol";
+import {IAuctionFactory} from "../../interfaces/IAuctionFactory.sol";
 
 import {IStrategy} from "@tokenized-strategy/interfaces/IStrategy.sol";
 import {IEvents} from "@tokenized-strategy/interfaces/IEvents.sol";
@@ -232,6 +233,16 @@ contract Setup is ExtendedTest, IEvents {
         minFuzzAmount[tokenAddrs["USDC"]] = 1000e6;
         maxFuzzAmount[tokenAddrs["DAI"]] = 1_000_000e18;
         minFuzzAmount[tokenAddrs["DAI"]] = 1000e18;
+    }
+
+    function _createAuction(IStrategyInterface _strategy) internal returns (address) {
+        return
+            IAuctionFactory(0xa076c247AfA44f8F006CA7f21A4EF59f7e4dc605)
+                .createNewAuction(
+                    _strategy.asset(),
+                    address(_strategy),
+                    management
+                );
     }
 
     function _isFixtureStrategy(

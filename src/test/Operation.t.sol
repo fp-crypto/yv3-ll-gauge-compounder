@@ -5,6 +5,7 @@ import "forge-std/console2.sol";
 import {Setup, ERC20, IStrategyInterface, IStrategy} from "./utils/Setup.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {dYFIHelper} from "../libraries/dYFIHelper.sol";
+import {IAuction} from "../interfaces/IAuction.sol";
 
 contract OperationTest is Setup {
     function setUp() public virtual override {
@@ -228,6 +229,141 @@ contract OperationTest is Setup {
             balanceBefore + _amount,
             "!final balance"
         );
+    }
+
+    function test_auction_dYFI(
+        IStrategyInterface strategy,
+        uint256 _amount,
+        uint256 _dyfiRewardAmount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        ERC20 asset = ERC20(strategy.asset());
+        address dYFI = tokenAddrs["dYFI"];
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
+        _dyfiRewardAmount = bound(
+            _dyfiRewardAmount,
+            strategy.minAmountToSell(),
+            Math.max(
+                Math.min(_amount / 500, maxDYFI()),
+                strategy.minAmountToSell() + 1
+            ) // airdrop no more than 0.5% of the strategy value
+        );
+
+        // Deposit into strategy
+        mintAndDepositIntoStrategy(strategy, user, _amount);
+
+        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+
+        airdropDYFI(address(strategy), _dyfiRewardAmount);
+
+        IAuction _auction = IAuction(_createAuction(strategy));
+
+        vm.startPrank(management);
+        strategy.setAuction(address(_auction));
+        strategy.setUseAuctions(true);
+        strategy.setDontDumpDYfi(true);
+        strategy.setDontSwapWeth(true);
+        _auction.enable(dYFI);
+        vm.stopPrank();
+
+        skip(10 minutes);
+
+        // Report profit
+        vm.prank(keeper);
+        (uint256 profit, uint256 loss) = strategy.report();
+
+        // Check return Values
+        assertGe(profit, 0, "!profit");
+        assertEq(loss, 0, "!loss");
+        assertGe(
+            ERC20(dYFI).balanceOf(address(strategy)),
+            _dyfiRewardAmount,
+            "dYFI"
+        );
+
+        skip(strategy.profitMaxUnlockTime());
+
+        vm.expectRevert();
+        strategy.kickAuction(dYFI);
+
+        vm.prank(keeper);
+        uint256 kicked = strategy.kickAuction(dYFI);
+
+        assertGe(kicked, _dyfiRewardAmount, "!kicked");
+        assertEq(ERC20(dYFI).balanceOf(address(strategy)), 0, "!swap");
+        assertEq(asset.balanceOf(address(strategy)), 0, "!asset");
+        assertTrue(_auction.isActive(dYFI), "!active");
+    }
+
+    function test_auction_weth(
+        IStrategyInterface strategy,
+        uint256 _amount,
+        uint256 _dyfiRewardAmount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        ERC20 asset = ERC20(strategy.asset());
+        address dYFI = tokenAddrs["dYFI"];
+        address WETH = tokenAddrs["WETH"];
+        vm.assume(address(asset) != WETH);
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
+        _dyfiRewardAmount = bound(
+            _dyfiRewardAmount,
+            strategy.minAmountToSell(),
+            Math.max(
+                Math.min(_amount / 500, maxDYFI()),
+                strategy.minAmountToSell() + 1
+            ) // airdrop no more than 0.5% of the strategy value
+        );
+
+        // Deposit into strategy
+        mintAndDepositIntoStrategy(strategy, user, _amount);
+
+        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+
+        airdropDYFI(address(strategy), _dyfiRewardAmount);
+
+        IAuction _auction = IAuction(_createAuction(strategy));
+
+        vm.startPrank(management);
+        strategy.setAuction(address(_auction));
+        strategy.setUseAuctions(true);
+        strategy.setDontDumpDYfi(false);
+        strategy.setDontSwapWeth(true);
+        _auction.enable(WETH);
+        vm.stopPrank();
+
+        skip(10 minutes);
+
+        // Report profit
+        vm.prank(keeper);
+        (uint256 profit, uint256 loss) = strategy.report();
+
+        // Check return Values
+        assertGe(profit, 0, "!profit");
+        assertEq(loss, 0, "!loss");
+        assertEq(ERC20(dYFI).balanceOf(address(strategy)), 0, "dYFI");
+        assertGt(ERC20(WETH).balanceOf(address(strategy)), 0, "!WETH");
+
+        skip(strategy.profitMaxUnlockTime());
+
+        vm.expectRevert();
+        strategy.kickAuction(WETH);
+
+        vm.prank(keeper);
+        uint256 kicked = strategy.kickAuction(WETH);
+
+        assertGt(kicked, 0, "!kicked");
+        assertEq(ERC20(WETH).balanceOf(address(strategy)), 0, "!swap");
+        assertEq(asset.balanceOf(address(strategy)), 0, "!asset");
+        assertTrue(_auction.isActive(WETH), "!active");
     }
 
     function test_profitableReport_forceCurveOnly(

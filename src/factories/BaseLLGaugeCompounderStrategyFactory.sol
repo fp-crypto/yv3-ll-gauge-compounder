@@ -11,23 +11,33 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
     /// @notice Emitted when a new strategy is deployed
     /// @param strategy Address of the newly deployed strategy
     /// @param asset Address of the underlying asset
-    /// @param locker Type of locker used (e.g., "cove", "1up", "stakedao")
-    event NewStrategy(address indexed strategy, address indexed asset, string locker);
+    event NewStrategy(address indexed strategy, address indexed asset);
 
+    /// @notice Registry contract that maps yVaults to their corresponding gauges
+    /// @dev Used to look up gauge addresses for yVaults
     IRegistry public constant GAUGE_REGISTRY =
         IRegistry(0x1D0fdCb628b2f8c0e22354d45B3B2D4cE9936F8B);
+
+    /// @notice Address with emergency powers over deployed strategies
+    /// @dev Set at construction time and cannot be changed
     address public immutable emergencyAdmin;
 
+    /// @notice Address with management rights over deployed strategies
+    /// @dev Can be updated by current management
     address public management;
+    /// @notice Address that receives performance fees from deployed strategies
+    /// @dev Can be updated by current management
     address public performanceFeeRecipient;
-    address public keeper;
 
+    /// @notice Address that can call tend/harvest on deployed strategies
+    /// @dev Can be updated by current management
+    address public keeper;
 
     /// @notice Track the deployments for each gauge
     /// @dev Maps yGauge address to its corresponding strategy address
     mapping(address => address) public deployments;
 
-    /// @notice Initializes the factory with the core protocol roles
+    /// @dev Only one strategy per gauge per factory is allowed
     /// @param _management Address that will have management rights over strategies
     /// @param _performanceFeeRecipient Address that will receive performance fees
     /// @param _keeper Address that will be able to tend/harvest strategies
@@ -45,7 +55,6 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
     }
 
     /// @notice Deploys a new strategy for a given yVault
-    /// @dev Abstract function to be implemented by derived factories
     /// @param _yVault The yearn vault address to create a strategy for
     /// @param _name The base name for the strategy token
     /// @param _assetSwapFee Uniswap pool fee for asset swaps
@@ -54,7 +63,39 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
         address _yVault,
         string calldata _name,
         uint24 _assetSwapFee
-    ) external virtual returns (address);
+    ) external returns (address) {
+        address _yGauge = getGauge(_yVault);
+        require(_yGauge != address(0), "no gauge");
+        require(deployments[_yGauge] == address(0), "exists");
+
+        // tokenized strategies available setters.
+        IBaseLLGaugeCompounderStrategy _strategy = _newStrategy(
+            _yGauge,
+            _name,
+            _assetSwapFee
+        );
+
+        _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
+        _strategy.setKeeper(keeper);
+        _strategy.setPendingManagement(management);
+        _strategy.setEmergencyAdmin(emergencyAdmin);
+
+        deployments[_yGauge] = address(_strategy);
+        emit NewStrategy(address(_strategy), _strategy.asset());
+        return address(_strategy);
+    }
+
+    /// @notice Deploys a new strategy for a given gauge
+    /// @dev Abstract function to be implemented by derived factories
+    /// @param _yGauge The yearn gauge address to create a strategy for
+    /// @param _name The base name for the strategy token
+    /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
+    /// @return Implementation of IBaseLLGaugeCompounderStrategy
+    function _newStrategy(
+        address _yGauge,
+        string calldata _name,
+        uint24 _assetSwapFee
+    ) internal virtual returns (IBaseLLGaugeCompounderStrategy);
 
     /// @notice Updates the core protocol roles
     /// @dev Can only be called by current management

@@ -29,24 +29,19 @@ contract CoveGaugeCompounderStrategyFactory is
         )
     {}
 
-    /// @notice Deploys a new Cove strategy for a given yVault
+    /// @notice Deploys a new Cove strategy for a given gauge
     /// @dev Implements the abstract function from BaseLLGaugeCompounderStrategyFactory
-    /// @param _yVault The yearn vault address to create a strategy for
+    /// @param _yGauge The yearn gauge address to create a strategy for
     /// @param _name The base name for the strategy token
     /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
-    /// @return address Address of the newly deployed Cove strategy
-    /// @dev Reverts if the vault has no gauge or if a strategy already exists for the gauge
-    function newStrategy(
-        address _yVault,
+    /// @return Implementation of IBaseLLGaugeCompounderStrategy
+    function _newStrategy(
+        address _yGauge,
         string calldata _name,
         uint24 _assetSwapFee
-    ) external override returns (address) {
-        address _yGauge = getGauge(_yVault);
-        require(_yGauge != address(0), "no gauge");
-        require(deployments[_yGauge] == address(0), "exists");
-
-        // tokenized strategies available setters.
-        IBaseLLGaugeCompounderStrategy _newStrategy = IBaseLLGaugeCompounderStrategy(
+    ) internal override returns (IBaseLLGaugeCompounderStrategy) {
+        return
+            IBaseLLGaugeCompounderStrategy(
                 address(
                     new CoveGaugeCompounderStrategy(
                         _yGauge,
@@ -55,14 +50,5 @@ contract CoveGaugeCompounderStrategyFactory is
                     )
                 )
             );
-
-        _newStrategy.setPerformanceFeeRecipient(performanceFeeRecipient);
-        _newStrategy.setKeeper(keeper);
-        _newStrategy.setPendingManagement(management);
-        _newStrategy.setEmergencyAdmin(emergencyAdmin);
-
-        deployments[_yGauge] = address(_newStrategy);
-        emit NewStrategy(address(_newStrategy), _newStrategy.asset(), "cove");
-        return address(_newStrategy);
     }
 }

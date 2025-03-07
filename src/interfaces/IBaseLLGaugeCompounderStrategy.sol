@@ -15,7 +15,7 @@ interface IBaseLLGaugeCompounderStrategy is
                                  VIEWS
     //////////////////////////////////////////////////////////////*/
 
-   function Y_GAUGE() external view returns (address);
+    function Y_GAUGE() external view returns (address);
 
     /// @notice The Wrapped Ether contract address
     function WETH() external view returns (address);
@@ -68,4 +68,16 @@ interface IBaseLLGaugeCompounderStrategy is
     /// @notice Sets the minimum amount of WETH required to trigger a swap
     /// @param _minWethToSwap Minimum amount of WETH tokens (in wei) needed to execute a swap
     function setMinWethToSwap(uint256 _minWethToSwap) external;
+
+    /// @notice Sets the auction contract address
+    /// @param _auction Address of the auction contract
+    /// @dev Can only be called by management
+    /// @dev Verifies the auction contract is compatible with this strategy
+    function setAuction(address _auction) external;
+
+    /// @notice Initiates an auction for a given token
+    /// @dev Can only be called by keepers when auctions are enabled
+    /// @param _from The token to be sold in the auction
+    /// @return . The available amount for bidding on in the auction.
+    function kickAuction(address _from) external returns (uint256);
 }
