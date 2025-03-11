@@ -56,12 +56,10 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
 
     /// @notice Deploys a new strategy for a given yVault
     /// @param _yVault The yearn vault address to create a strategy for
-    /// @param _name The base name for the strategy token
     /// @param _assetSwapFee Uniswap pool fee for asset swaps
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function newStrategy(
         address _yVault,
-        string calldata _name,
         uint24 _assetSwapFee
     ) external returns (address) {
         address _yGauge = getGauge(_yVault);
@@ -71,7 +69,6 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
         // tokenized strategies available setters.
         IBaseLLGaugeCompounderStrategy _strategy = _newStrategy(
             _yGauge,
-            _name,
             _assetSwapFee
         );
 
@@ -88,12 +85,10 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
     /// @notice Deploys a new strategy for a given gauge
     /// @dev Abstract function to be implemented by derived factories
     /// @param _yGauge The yearn gauge address to create a strategy for
-    /// @param _name The base name for the strategy token
     /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function _newStrategy(
         address _yGauge,
-        string calldata _name,
         uint24 _assetSwapFee
     ) internal virtual returns (IBaseLLGaugeCompounderStrategy);
 

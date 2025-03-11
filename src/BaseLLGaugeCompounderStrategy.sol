@@ -43,17 +43,22 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
-    /// @param _name Name of the strategy token
+    /// @param _lockerName Name of the liquid locker
     /// @param _assetSwapUniFee Uniswap V3 fee tier for asset swaps (use 0 if asset is WETH)
     /// @dev Sets up Uniswap fee tiers for non-WETH assets
     constructor(
         address _yGauge,
-        string memory _name,
+        string memory _lockerName,
         uint24 _assetSwapUniFee
     )
         Base4626Compounder(
             IStrategy(IStrategy(_yGauge).asset()).asset(), // the underlying asset
-            _name,
+            string.concat(
+                IStrategy(_yGauge).name(),
+                " ",
+                _lockerName,
+                " Compounder"
+            ),
             IStrategy(_yGauge).asset() // the vault
         )
     {
@@ -88,11 +93,6 @@ abstract contract BaseLLGaugeCompounderStrategy is
                 0
             );
         }
-
-        // uint256 _assetBalance = balanceOfAsset();
-        // if (_assetBalance >= 1e6) { // TODO: create a minWant param
-        //     _deployFunds(_assetBalance);
-        // }
     }
 
     /// @notice Claims dYFI rewards from the gauge

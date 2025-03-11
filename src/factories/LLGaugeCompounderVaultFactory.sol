@@ -22,7 +22,7 @@ contract LLGaugeCompounderVaultFactory {
     IReleaseRegistry public constant RELEASE_REGISTRY =
         IReleaseRegistry(0x0377b4daDDA86C89A0091772B79ba67d0E5F7198);
 
-    address public roleManager;
+    address public immutable ROLE_MANAGER;
 
     /// @notice Address of the Cove strategy factory
     /// @dev Immutable reference to the factory for Cove strategies
@@ -62,7 +62,7 @@ contract LLGaugeCompounderVaultFactory {
         address _oneUpGaugeCompounderStrategyFactory,
         address _stakeDaoGaugeCompounderStrategyFactory
     ) {
-        roleManager = _roleManager;
+        ROLE_MANAGER = _roleManager;
         COVE_FACTORY = _coveGaugeCompounderStrategyFactory;
         ONE_UP_FACTORY = _oneUpGaugeCompounderStrategyFactory;
         STAKE_DAO_FACTORY = _stakeDaoGaugeCompounderStrategyFactory;
@@ -100,22 +100,22 @@ contract LLGaugeCompounderVaultFactory {
         );
 
         _vault.set_role(address(this), Roles.ADD_STRATEGY_MANAGER);
-        _vault.transfer_role_manager(roleManager);
+        _vault.transfer_role_manager(ROLE_MANAGER);
 
         LLTriple memory _strategies = strategyDeployments(_yGauge);
 
         if (_strategies.cove == address(0))
             _strategies.cove = BaseLLGaugeCompounderStrategyFactory(
                 COVE_FACTORY
-            ).newStrategy(_yVault, _name, _assetSwapFee);
+            ).newStrategy(_yVault, _assetSwapFee);
         if (_strategies.oneUp == address(0))
             _strategies.oneUp = BaseLLGaugeCompounderStrategyFactory(
                 ONE_UP_FACTORY
-            ).newStrategy(_yVault, _name, _assetSwapFee);
+            ).newStrategy(_yVault, _assetSwapFee);
         if (_strategies.stakeDao == address(0))
             _strategies.stakeDao = BaseLLGaugeCompounderStrategyFactory(
                 STAKE_DAO_FACTORY
-            ).newStrategy(_yVault, _name, _assetSwapFee);
+            ).newStrategy(_yVault, _assetSwapFee);
 
         _vault.add_strategy(_strategies.cove, true);
         _vault.add_strategy(_strategies.oneUp, true);

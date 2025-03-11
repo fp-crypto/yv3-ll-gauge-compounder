@@ -23,13 +23,11 @@ contract StakeDaoGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
 
     /// @notice Initialize the strategy with a gauge and name
     /// @param _yGauge The Yearn gauge address this strategy will compound
-    /// @param _name The name of the strategy
     /// @param _assetSwapUniFee The Uniswap V3 fee tier for asset swaps
     constructor(
         address _yGauge,
-        string memory _name,
         uint24 _assetSwapUniFee
-    ) BaseLLGaugeCompounderStrategy(_yGauge, _name, _assetSwapUniFee) {
+    ) BaseLLGaugeCompounderStrategy(_yGauge, "StakeDao", _assetSwapUniFee) {
         STAKE_DAO_LIQUIDITY_GAUGE = ILiquidityGauge(
             STAKE_DAO_YEARN_STRATEGY.rewardDistributors(_yGauge)
         );

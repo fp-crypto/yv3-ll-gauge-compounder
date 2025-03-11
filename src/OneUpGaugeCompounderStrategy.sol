@@ -28,13 +28,11 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
 
     /// @notice Initialize the strategy with a gauge and name
     /// @param _yGauge The Yearn gauge address this strategy will compound
-    /// @param _name The name of the strategy
     /// @param _assetSwapUniFee The Uniswap V3 fee tier for asset swaps
     constructor(
         address _yGauge,
-        string memory _name,
         uint24 _assetSwapUniFee
-    ) BaseLLGaugeCompounderStrategy(_yGauge, _name, _assetSwapUniFee) {
+    ) BaseLLGaugeCompounderStrategy(_yGauge, "1up", _assetSwapUniFee) {
         ONE_UP_GAUGE = IOneUpGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
         ONE_UP_GAUGE_REWARDS = IOneUpGaugeRewards(ONE_UP_GAUGE.rewards());
 

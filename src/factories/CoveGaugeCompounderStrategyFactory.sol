@@ -32,12 +32,10 @@ contract CoveGaugeCompounderStrategyFactory is
     /// @notice Deploys a new Cove strategy for a given gauge
     /// @dev Implements the abstract function from BaseLLGaugeCompounderStrategyFactory
     /// @param _yGauge The yearn gauge address to create a strategy for
-    /// @param _name The base name for the strategy token
     /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function _newStrategy(
         address _yGauge,
-        string calldata _name,
         uint24 _assetSwapFee
     ) internal override returns (IBaseLLGaugeCompounderStrategy) {
         return
@@ -45,7 +43,6 @@ contract CoveGaugeCompounderStrategyFactory is
                 address(
                     new CoveGaugeCompounderStrategy(
                         _yGauge,
-                        _name,
                         _assetSwapFee
                     )
                 )
