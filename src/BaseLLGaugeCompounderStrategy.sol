@@ -13,8 +13,8 @@ import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 /// @dev Inherits Base4626Compounder for vault functionality, and includes UniswapV3 and Auction swapping capabilities
 /// @custom:security-contact security@yearn.fi
 abstract contract BaseLLGaugeCompounderStrategy is
-    Base4626Compounder,
-    UniswapV3Swapper
+    UniswapV3Swapper,
+    Base4626Compounder
 {
     using SafeERC20 for ERC20;
 
@@ -89,10 +89,10 @@ abstract contract BaseLLGaugeCompounderStrategy is
             );
         }
 
-        //uint256 _assetBalance = balanceOfAsset();
-        //if (_assetBalance != 0) {
-        //    _deployFunds(_assetBalance);
-        //}
+        // uint256 _assetBalance = balanceOfAsset();
+        // if (_assetBalance >= 1e6) { // TODO: create a minWant param
+        //     _deployFunds(_assetBalance);
+        // }
     }
 
     /// @notice Claims dYFI rewards from the gauge

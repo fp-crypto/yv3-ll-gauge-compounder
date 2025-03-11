@@ -21,7 +21,7 @@ contract OperationTest is Setup {
         assertEq(strategy.management(), management);
         assertEq(strategy.performanceFeeRecipient(), performanceFeeRecipient);
         assertEq(strategy.keeper(), keeper);
-        assertTrue(strategyFactory.isDeployedStrategy(address(strategy)));
+        assertTrue(vaultFactory.isDeployedStrategy(address(strategy)));
     }
 
     function test_operation(
@@ -508,10 +508,10 @@ contract OperationTest is Setup {
         assertTrue(!trigger);
     }
 
-    function test_strategyFactoryUnique(IStrategyInterface strategy) public {
+    function test_vaultFactoryUnique(IStrategyInterface strategy) public {
         vm.assume(_isFixtureStrategy(strategy));
         address vault = strategy.vault();
         vm.expectRevert("exists");
-        strategyFactory.newStrategiesGroup(vault, "", 0);
+        vaultFactory.newLLCompounderVault(vault, "", "", 0);
     }
 }

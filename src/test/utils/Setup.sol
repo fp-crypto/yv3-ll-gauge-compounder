@@ -7,7 +7,7 @@ import {ExtendedTest} from "./ExtendedTest.sol";
 import {CoveGaugeCompounderStrategyFactory} from "../../factories/CoveGaugeCompounderStrategyFactory.sol";
 import {OneUpGaugeCompounderStrategyFactory} from "../../factories/OneUpGaugeCompounderStrategyFactory.sol";
 import {StakeDaoGaugeCompounderStrategyFactory} from "../../factories/StakeDaoGaugeCompounderStrategyFactory.sol";
-import {LLGaugeCompounderStrategiesFactory} from "../../factories/LLGaugeCompounderStrategiesFactory.sol";
+import {LLGaugeCompounderVaultFactory} from "../../factories/LLGaugeCompounderVaultFactory.sol";
 import {IBaseLLGaugeCompounderStrategy as IStrategyInterface} from "../../interfaces/IBaseLLGaugeCompounderStrategy.sol";
 import {IAuctionFactory} from "../../interfaces/IAuctionFactory.sol";
 
@@ -28,7 +28,8 @@ interface IFactory {
 contract Setup is ExtendedTest, IEvents {
     IStrategyInterface[] public fixtureStrategy;
 
-    LLGaugeCompounderStrategiesFactory public strategyFactory;
+
+    LLGaugeCompounderVaultFactory public vaultFactory;
 
     mapping(string => address) public tokenAddrs;
 
@@ -38,6 +39,7 @@ contract Setup is ExtendedTest, IEvents {
     address public management = address(1);
     address public performanceFeeRecipient = address(3);
     address public emergencyAdmin = address(5);
+    address public roleManager = address(7);
 
     // Address of the real deployed Factory
     address public factory;
@@ -45,8 +47,8 @@ contract Setup is ExtendedTest, IEvents {
     // Integer variables that will be used repeatedly.
     uint256 public MAX_BPS = 10_000;
 
-    mapping(address => uint256) public maxFuzzAmount;
     mapping(address => uint256) public minFuzzAmount;
+    mapping(address => uint256) public maxFuzzAmount;
 
     // Default profit max unlock time is set for 10 days
     uint256 public profitMaxUnlockTime = 10 days;
@@ -55,8 +57,8 @@ contract Setup is ExtendedTest, IEvents {
         _setTokenAddrs();
         _setFuzzLimits();
 
-        LLGaugeCompounderStrategiesFactory.LLTriple
-            memory factories = LLGaugeCompounderStrategiesFactory.LLTriple({
+        LLGaugeCompounderVaultFactory.LLTriple
+            memory factories = LLGaugeCompounderVaultFactory.LLTriple({
                 cove: address(
                     new CoveGaugeCompounderStrategyFactory(
                         management,
@@ -83,7 +85,8 @@ contract Setup is ExtendedTest, IEvents {
                 )
             });
 
-        strategyFactory = new LLGaugeCompounderStrategiesFactory(
+        vaultFactory = new LLGaugeCompounderVaultFactory(
+            roleManager,
             factories.cove,
             factories.oneUp,
             factories.stakeDao
@@ -106,12 +109,17 @@ contract Setup is ExtendedTest, IEvents {
     function setUpStrategies(
         IStrategy vault,
         uint24 wethAssetSwapFee
-    ) public returns (LLGaugeCompounderStrategiesFactory.LLTriple memory) {
-        LLGaugeCompounderStrategiesFactory.LLTriple
-            memory _strategies = strategyFactory.newStrategiesGroup(
-                address(vault),
-                "Tokenized Strategy",
-                wethAssetSwapFee
+    ) public returns (LLGaugeCompounderVaultFactory.LLTriple memory) {
+        vaultFactory.newLLCompounderVault(
+            address(vault),
+            "yVaultLLCompounder",
+            "yvXYZ-LL",
+            wethAssetSwapFee
+        );
+
+        LLGaugeCompounderVaultFactory.LLTriple
+            memory _strategies = vaultFactory.strategyDeploymentsByVault(
+                address(vault)
             );
 
         uint256 i = fixtureStrategy.length;
@@ -235,7 +243,9 @@ contract Setup is ExtendedTest, IEvents {
         minFuzzAmount[tokenAddrs["DAI"]] = 1000e18;
     }
 
-    function _createAuction(IStrategyInterface _strategy) internal returns (address) {
+    function _createAuction(
+        IStrategyInterface _strategy
+    ) internal returns (address) {
         return
             IAuctionFactory(0xa076c247AfA44f8F006CA7f21A4EF59f7e4dc605)
                 .createNewAuction(
