@@ -6,7 +6,7 @@ update:; forge update
 size  :; forge build --sizes
 
 # storage inspection
-inspect :; forge inspect ${contract} storage-layout 
+inspect :; forge inspect ${contract} storageLayout 
 
 # specify which fork to use. set this in our .env
 # if we want to test multiple forks in one go, remove this as an argument below
