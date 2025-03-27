@@ -55,14 +55,13 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
     }
 
     /// @notice Deploys a new strategy for a given yVault
-    /// @param _yVault The yearn vault address to create a strategy for
+    /// @param _yGauge The yearn gauge address to create a strategy for
     /// @param _assetSwapFee Uniswap pool fee for asset swaps
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function newStrategy(
-        address _yVault,
+        address _yGauge,
         uint24 _assetSwapFee
     ) external returns (address) {
-        address _yGauge = getGauge(_yVault);
         require(_yGauge != address(0), "no gauge");
         require(deployments[_yGauge] == address(0), "exists");
 

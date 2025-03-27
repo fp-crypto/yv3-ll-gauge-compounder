@@ -99,27 +99,45 @@ contract LLGaugeCompounderVaultFactory {
             )
         );
 
-        _vault.set_role(address(this), Roles.ADD_STRATEGY_MANAGER);
-        _vault.transfer_role_manager(ROLE_MANAGER);
+        uint256 roles = Roles.ADD_STRATEGY_MANAGER |
+            Roles.DEPOSIT_LIMIT_MANAGER |
+            Roles.MAX_DEBT_MANAGER;
+        _vault.set_role(address(this), roles);
+        _vault.set_deposit_limit(type(uint256).max);
 
         LLTriple memory _strategies = strategyDeployments(_yGauge);
 
         if (_strategies.cove == address(0))
             _strategies.cove = BaseLLGaugeCompounderStrategyFactory(
                 COVE_FACTORY
-            ).newStrategy(_yVault, _assetSwapFee);
+            ).newStrategy(_yGauge, _assetSwapFee);
         if (_strategies.oneUp == address(0))
             _strategies.oneUp = BaseLLGaugeCompounderStrategyFactory(
                 ONE_UP_FACTORY
-            ).newStrategy(_yVault, _assetSwapFee);
+            ).newStrategy(_yGauge, _assetSwapFee);
         if (_strategies.stakeDao == address(0))
             _strategies.stakeDao = BaseLLGaugeCompounderStrategyFactory(
                 STAKE_DAO_FACTORY
-            ).newStrategy(_yVault, _assetSwapFee);
+            ).newStrategy(_yGauge, _assetSwapFee);
 
         _vault.add_strategy(_strategies.cove, true);
+        _vault.update_max_debt_for_strategy(
+            _strategies.cove,
+            type(uint256).max
+        );
         _vault.add_strategy(_strategies.oneUp, true);
+        _vault.update_max_debt_for_strategy(
+            _strategies.oneUp,
+            type(uint256).max
+        );
         _vault.add_strategy(_strategies.stakeDao, true);
+        _vault.update_max_debt_for_strategy(
+            _strategies.stakeDao,
+            type(uint256).max
+        );
+
+        _vault.remove_role(address(this), roles);
+        _vault.transfer_role_manager(ROLE_MANAGER);
 
         deployments[_yGauge] = address(_vault);
 
