@@ -33,17 +33,20 @@ contract CoveGaugeCompounderStrategyFactory is
     /// @dev Implements the abstract function from BaseLLGaugeCompounderStrategyFactory
     /// @param _yGauge The yearn gauge address to create a strategy for
     /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
+    /// @param _parentVault Address of the parent allocator vault that will distribute funds to this strategy
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function _newStrategy(
         address _yGauge,
-        uint24 _assetSwapFee
+        uint24 _assetSwapFee,
+        address _parentVault
     ) internal override returns (IBaseLLGaugeCompounderStrategy) {
         return
             IBaseLLGaugeCompounderStrategy(
                 address(
                     new CoveGaugeCompounderStrategy(
                         _yGauge,
-                        _assetSwapFee
+                        _assetSwapFee,
+                        _parentVault
                     )
                 )
             );

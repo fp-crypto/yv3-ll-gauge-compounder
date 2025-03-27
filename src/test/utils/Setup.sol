@@ -136,9 +136,10 @@ contract Setup is ExtendedTest, IEvents {
 
         vm.startPrank(management);
         for (; i < fixtureStrategy.length; ++i) {
-            IStrategy _strategy = fixtureStrategy[i];
+            IStrategyInterface _strategy = fixtureStrategy[i];
             _strategy.acceptManagement();
             _strategy.setProfitMaxUnlockTime(1 hours);
+            _strategy.setOpenDeposits(true);
         }
         vm.stopPrank();
 

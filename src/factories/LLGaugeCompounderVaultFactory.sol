@@ -13,6 +13,7 @@ import {Roles} from "../interfaces/Roles.sol";
 /// @notice Factory contract for deploying Liquid Locker gauge compounder strategies
 /// @dev Handles deployment and initialization of strategies for different LL providers (Cove, 1UP, StakeDAO)
 /// @dev Acts as a coordinator for the individual provider factories
+/// @dev Creates a parent allocator vault that distributes funds between the different LL strategies
 contract LLGaugeCompounderVaultFactory {
     /// @notice Registry contract that maps yVaults to their corresponding gauges
     /// @dev Used to look up gauge addresses for yVaults
@@ -68,13 +69,14 @@ contract LLGaugeCompounderVaultFactory {
         STAKE_DAO_FACTORY = _stakeDaoGaugeCompounderStrategyFactory;
     }
 
-    /// @notice Creates a new vault with LL gauge compounder strategies
-    /// @dev Deploys a vault and adds Cove, 1UP, and StakeDAO strategies to it
+    /// @notice Creates a new parent allocator vault with LL gauge compounder strategies
+    /// @dev Deploys a parent vault and adds Cove, 1UP, and StakeDAO strategies to it
+    /// @dev The parent vault acts as an allocator that distributes funds between the different LL strategies
     /// @param _yVault The yearn vault address to create strategies for
-    /// @param _name The name for the vault
-    /// @param _symbol The symbol for the vault
+    /// @param _name The name for the parent vault
+    /// @param _symbol The symbol for the parent vault
     /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
-    /// @return Address of the newly created vault
+    /// @return Address of the newly created parent allocator vault
     /// @dev Reverts if the vault doesn't have a corresponding gauge or if a vault already exists for this gauge
     function newLLCompounderVault(
         address _yVault,
@@ -110,15 +112,15 @@ contract LLGaugeCompounderVaultFactory {
         if (_strategies.cove == address(0))
             _strategies.cove = BaseLLGaugeCompounderStrategyFactory(
                 COVE_FACTORY
-            ).newStrategy(_yGauge, _assetSwapFee);
+            ).newStrategy(_yGauge, _assetSwapFee, address(_vault));
         if (_strategies.oneUp == address(0))
             _strategies.oneUp = BaseLLGaugeCompounderStrategyFactory(
                 ONE_UP_FACTORY
-            ).newStrategy(_yGauge, _assetSwapFee);
+            ).newStrategy(_yGauge, _assetSwapFee, address(_vault));
         if (_strategies.stakeDao == address(0))
             _strategies.stakeDao = BaseLLGaugeCompounderStrategyFactory(
                 STAKE_DAO_FACTORY
-            ).newStrategy(_yGauge, _assetSwapFee);
+            ).newStrategy(_yGauge, _assetSwapFee, address(_vault));
 
         _vault.add_strategy(_strategies.cove, true);
         _vault.update_max_debt_for_strategy(

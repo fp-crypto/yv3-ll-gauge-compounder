@@ -21,6 +21,11 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @notice The Wrapped Ether contract address
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
+    /// @notice Flag to control whether deposits are open to all addresses or restricted to the parent vault
+    /// @dev When true, any address can deposit; when false, only the parent vault can deposit
+    /// @dev Defaults to false only allowing the parent vault to deposit
+    bool public openDeposits;
+
     /// @notice Flag to disable automatic conversion of dYFI rewards to WETH
     /// @dev When true, dYFI rewards will remain in the contract
     bool public dontDumpDYfi;
@@ -41,15 +46,21 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev Immutable reference to the gauge that provides rewards
     IGauge public immutable Y_GAUGE;
 
+    /// @notice The parent allocator vault that distributes funds between LL strategies
+    /// @dev This vault is responsible for allocating assets between different LL providers
+    address public immutable PARENT_VAULT;
+
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
     /// @param _lockerName Name of the liquid locker
     /// @param _assetSwapUniFee Uniswap V3 fee tier for asset swaps (use 0 if asset is WETH)
+    /// @param _parentVault Address of the parent allocator vault that distributes funds between LL strategies
     /// @dev Sets up Uniswap fee tiers for non-WETH assets
     constructor(
         address _yGauge,
         string memory _lockerName,
-        uint24 _assetSwapUniFee
+        uint24 _assetSwapUniFee,
+        address _parentVault
     )
         Base4626Compounder(
             IStrategy(IStrategy(_yGauge).asset()).asset(), // the underlying asset
@@ -69,6 +80,20 @@ abstract contract BaseLLGaugeCompounderStrategy is
         } else {
             dontSwapWeth = true;
         }
+        PARENT_VAULT = _parentVault;
+    }
+
+    /// @inheritdoc Base4626Compounder
+    /// @notice Controls deposit limits based on the openDeposits flag and parent vault status
+    /// @dev When openDeposits is false, only the parent vault can deposit; otherwise, anyone can deposit
+    /// @param _owner The address attempting to deposit
+    /// @return The available deposit limit for the given address
+    function availableDepositLimit(
+        address _owner
+    ) public view virtual override returns (uint256) {
+        if (!openDeposits && _owner != PARENT_VAULT) return 0;
+        // Otherwise, use the standard deposit limit logic from the parent contract
+        return super.availableDepositLimit(_owner);
     }
 
     /// @notice Claims dYFI rewards and optionally converts them to the strategy's asset
@@ -114,6 +139,14 @@ abstract contract BaseLLGaugeCompounderStrategy is
         require(msg.sender == address(dYFIHelper.BALANCER_VAULT), "!balancer");
         require(feeAmounts.length == 1 && feeAmounts[0] == 0, "fee");
         dYFIHelper.flashloanLogic(userData);
+    }
+
+    /// @notice Sets whether deposits are open to all addresses or restricted to the parent vault
+    /// @param _openDeposits When true, any address can deposit; when false, only the parent vault can deposit
+    /// @dev Can only be called by management
+    /// @dev Used to control deposit access
+    function setOpenDeposits(bool _openDeposits) external onlyManagement {
+        openDeposits = _openDeposits;
     }
 
     /// @notice Sets whether to disable automatic conversion of dYFI rewards to WETH

@@ -57,10 +57,12 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
     /// @notice Deploys a new strategy for a given yVault
     /// @param _yGauge The yearn gauge address to create a strategy for
     /// @param _assetSwapFee Uniswap pool fee for asset swaps
+    /// @param _parentVault Address of the parent allocator vault that will distribute funds to this strategy
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function newStrategy(
         address _yGauge,
-        uint24 _assetSwapFee
+        uint24 _assetSwapFee,
+        address _parentVault
     ) external returns (address) {
         require(_yGauge != address(0), "no gauge");
         require(deployments[_yGauge] == address(0), "exists");
@@ -68,13 +70,15 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
         // tokenized strategies available setters.
         IBaseLLGaugeCompounderStrategy _strategy = _newStrategy(
             _yGauge,
-            _assetSwapFee
+            _assetSwapFee,
+            _parentVault
         );
 
         _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
         _strategy.setKeeper(keeper);
         _strategy.setPendingManagement(management);
         _strategy.setEmergencyAdmin(emergencyAdmin);
+        _strategy.setProfitMaxUnlockTime(0);
 
         deployments[_yGauge] = address(_strategy);
         emit NewStrategy(address(_strategy), _strategy.asset());
@@ -85,10 +89,12 @@ abstract contract BaseLLGaugeCompounderStrategyFactory {
     /// @dev Abstract function to be implemented by derived factories
     /// @param _yGauge The yearn gauge address to create a strategy for
     /// @param _assetSwapFee Uniswap pool fee for asset swaps (in hundredths of a bip)
+    /// @param _parentVault Address of the parent allocator vault that will distribute funds to this strategy
     /// @return Implementation of IBaseLLGaugeCompounderStrategy
     function _newStrategy(
         address _yGauge,
-        uint24 _assetSwapFee
+        uint24 _assetSwapFee,
+        address _parentVault
     ) internal virtual returns (IBaseLLGaugeCompounderStrategy);
 
     /// @notice Updates the core protocol roles

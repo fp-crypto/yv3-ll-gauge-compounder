@@ -17,6 +17,10 @@ interface IBaseLLGaugeCompounderStrategy is
 
     function Y_GAUGE() external view returns (address);
 
+    /// @notice The parent allocator vault that distributes funds between LL strategies
+    /// @dev This vault is responsible for allocating assets between different LL providers
+    function PARENT_VAULT() external view returns (address);
+
     /// @notice The Wrapped Ether contract address
     function WETH() external view returns (address);
 
@@ -28,6 +32,10 @@ interface IBaseLLGaugeCompounderStrategy is
 
     /// @notice Flag indicating if auctions should be used for token swaps
     function useAuctions() external view returns (bool);
+
+    /// @notice Flag to control whether deposits are open to all addresses or restricted to the parent vault
+    /// @dev When true, any address can deposit; when false, only the parent vault can deposit
+    function openDeposits() external view returns (bool);
 
     /*//////////////////////////////////////////////////////////////
                             MUTATIVE FUNCTIONS
@@ -60,6 +68,11 @@ interface IBaseLLGaugeCompounderStrategy is
     /// @notice Sets whether to use auctions for token swaps
     /// @param _useAuctions New value for useAuctions flag
     function setUseAuctions(bool _useAuctions) external;
+
+    /// @notice Sets whether deposits are open to all addresses or restricted to the parent vault
+    /// @param _openDeposits When true, any address can deposit; when false, only the parent vault can deposit
+    /// @dev Used to control deposit access during different operational phases or market conditions
+    function setOpenDeposits(bool _openDeposits) external;
 
     /// @notice Sets the Uniswap V3 fee tier for WETH to asset swaps
     /// @param _wethToAssetSwapFee The fee tier to use (in hundredths of a bip)

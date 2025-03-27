@@ -29,10 +29,19 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @notice Initialize the strategy with a gauge and name
     /// @param _yGauge The Yearn gauge address this strategy will compound
     /// @param _assetSwapUniFee The Uniswap V3 fee tier for asset swaps
+    /// @param _parentVault Address of the parent allocator vault that distributes funds between LL strategies
     constructor(
         address _yGauge,
-        uint24 _assetSwapUniFee
-    ) BaseLLGaugeCompounderStrategy(_yGauge, "1up", _assetSwapUniFee) {
+        uint24 _assetSwapUniFee,
+        address _parentVault
+    )
+        BaseLLGaugeCompounderStrategy(
+            _yGauge,
+            "1up",
+            _assetSwapUniFee,
+            _parentVault
+        )
+    {
         ONE_UP_GAUGE = IOneUpGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
         ONE_UP_GAUGE_REWARDS = IOneUpGaugeRewards(ONE_UP_GAUGE.rewards());
 
