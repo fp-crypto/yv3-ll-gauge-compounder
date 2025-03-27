@@ -5,7 +5,7 @@ import {dYFIHelper} from "./libraries/dYFIHelper.sol";
 import {IGauge} from "./interfaces/veyfi/IGauge.sol";
 import {IAuction} from "./interfaces/IAuction.sol";
 
-import {Base4626Compounder, ERC20, IStrategy, SafeERC20} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
+import {Base4626Compounder, ERC20, IStrategy, Math, SafeERC20} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
 import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 
 /// @title Base Liquid Locker Gauge Compounder Strategy
@@ -46,6 +46,10 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev Immutable reference to the gauge that provides rewards
     IGauge public immutable Y_GAUGE;
 
+    /// @notice The protocol specific address that holds gauge tokens
+    /// @dev Immutable reference to the gauge token holder
+    address internal immutable Y_GAUGE_SHARE_HOLDER;
+
     /// @notice The parent allocator vault that distributes funds between LL strategies
     /// @dev This vault is responsible for allocating assets between different LL providers
     address public immutable PARENT_VAULT;
@@ -60,7 +64,8 @@ abstract contract BaseLLGaugeCompounderStrategy is
         address _yGauge,
         string memory _lockerName,
         uint24 _assetSwapUniFee,
-        address _parentVault
+        address _parentVault,
+        address _yGaugeShareHolder
     )
         Base4626Compounder(
             IStrategy(IStrategy(_yGauge).asset()).asset(), // the underlying asset
@@ -81,6 +86,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
             dontSwapWeth = true;
         }
         PARENT_VAULT = _parentVault;
+        Y_GAUGE_SHARE_HOLDER = _yGaugeShareHolder;
     }
 
     /// @inheritdoc Base4626Compounder
@@ -94,6 +100,23 @@ abstract contract BaseLLGaugeCompounderStrategy is
         if (!openDeposits && _owner != PARENT_VAULT) return 0;
         // Otherwise, use the standard deposit limit logic from the parent contract
         return super.availableDepositLimit(_owner);
+    }
+
+    /// @notice Calculate the maximum amount that can be withdrawn from all vaults
+    /// @return The maximum withdrawable amount in terms of the underlying asset
+    /// @dev Calculates the total withdrawable by combining this addresses vaults shares and the y_gauges shares
+    function vaultsMaxWithdraw() public view override returns (uint256) {
+        return
+            vault.convertToAssets(
+                vault.maxRedeem(address(this)) +
+                    Math.min(
+                        Math.min(
+                            vault.maxRedeem(address(Y_GAUGE)),
+                            Y_GAUGE.maxRedeem(Y_GAUGE_SHARE_HOLDER)
+                        ),
+                        balanceOfStake()
+                    )
+            );
     }
 
     /// @notice Claims dYFI rewards and optionally converts them to the strategy's asset

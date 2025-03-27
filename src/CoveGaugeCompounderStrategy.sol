@@ -34,7 +34,8 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
             _yGauge,
             "Cove",
             _assetSwapUniFee,
-            _parentVault
+            _parentVault,
+            0x05dcdBF02F29239D1f8d9797E22589A2DE1C152F // Cove YearnStakingDelegate
         )
     {
         COVE_GAUGE = IYSDRewardsGauge(
@@ -44,21 +45,6 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         );
         IERC20(vault).safeApprove(_yGauge, type(uint256).max);
         IERC20(_yGauge).safeApprove(address(COVE_GAUGE), type(uint256).max);
-    }
-
-    /// @notice Calculate the maximum amount that can be withdrawn from all vaults
-    /// @return The maximum withdrawable amount in terms of the underlying asset
-    /// @dev Combines the withdrawable amounts from both the vault and the gauge
-    function vaultsMaxWithdraw() public view override returns (uint256) {
-        // TODO: fix
-
-        return
-            vault.convertToAssets(
-                vault.maxRedeem(address(this)) +
-                    COVE_GAUGE.convertToAssets(
-                        COVE_GAUGE.maxRedeem(address(this))
-                    )
-            );
     }
 
     /// @notice Stakes available vault tokens in the Cove gauge

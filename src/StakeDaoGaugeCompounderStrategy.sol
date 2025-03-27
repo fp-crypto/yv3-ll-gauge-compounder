@@ -34,7 +34,8 @@ contract StakeDaoGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
             _yGauge,
             "StakeDao",
             _assetSwapUniFee,
-            _parentVault
+            _parentVault,
+            STAKE_DAO_YEARN_STRATEGY.locker() // StakeDao YearnLocker
         )
     {
         STAKE_DAO_LIQUIDITY_GAUGE = ILiquidityGauge(
@@ -48,17 +49,6 @@ contract StakeDaoGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
             address(STAKE_DAO_GAUGE_DEPOSITOR_VAULT),
             type(uint256).max
         );
-    }
-
-    /// @notice Calculate the maximum amount that can be withdrawn from all vaults
-    /// @return The maximum withdrawable amount in terms of the underlying asset
-    /// @dev Combines the withdrawable amounts from both the vault and the gauge
-    function vaultsMaxWithdraw() public view override returns (uint256) {
-        return
-            vault.convertToAssets(
-                vault.maxRedeem(address(this)) +
-                    STAKE_DAO_LIQUIDITY_GAUGE.balanceOf(address(this))
-            );
     }
 
     /// @notice Stakes available vault tokens in the StakeDAO gauge

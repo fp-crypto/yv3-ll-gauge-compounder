@@ -39,28 +39,14 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
             _yGauge,
             "1up",
             _assetSwapUniFee,
-            _parentVault
+            _parentVault,
+            0x242521ca01f330F050a65FF5B8Ebbe92198Ae64F // 1up Proxy
         )
     {
         ONE_UP_GAUGE = IOneUpGauge(ONE_UP_REGISTRY.gauge_map(_yGauge));
         ONE_UP_GAUGE_REWARDS = IOneUpGaugeRewards(ONE_UP_GAUGE.rewards());
 
         IERC20(vault).safeApprove(address(ONE_UP_GAUGE), type(uint256).max);
-    }
-
-    /// @notice Calculate the maximum amount that can be withdrawn from all vaults
-    /// @return The maximum withdrawable amount in terms of the underlying asset
-    /// @dev Combines the withdrawable amounts from both the vault and the gauge
-    function vaultsMaxWithdraw() public view override returns (uint256) {
-        // TODO: fix
-
-        return
-            vault.convertToAssets(
-                vault.maxRedeem(address(this)) +
-                    ONE_UP_GAUGE.convertToAssets(
-                        ONE_UP_GAUGE.maxRedeem(address(this))
-                    )
-            );
     }
 
     /// @notice Stakes available vault tokens in the 1UP gauge
