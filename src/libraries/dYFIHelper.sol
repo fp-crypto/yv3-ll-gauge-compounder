@@ -115,8 +115,7 @@ library dYFIHelper {
         IERC20(WETH).safeTransfer(address(BALANCER_VAULT), ethRequired);
     }
 
-    /// @notice Safely approves token spending with an extra 1 for gas savings
-    /// @dev Uses OpenZeppelin's SafeERC20 for the approval
+    /// @notice Force approves token spending with an extra 1 for gas savings
     /// @param _token The token to approve spending of
     /// @param _spender The address to approve spending for
     /// @param _amount The amount to approve (will add 1 wei as buffer)
@@ -125,6 +124,6 @@ library dYFIHelper {
         address _spender,
         uint256 _amount
     ) internal {
-        IERC20(_token).safeApprove(_spender, _amount + 1);
+        IERC20(_token).forceApprove(_spender, _amount + 1);
     }
 }
