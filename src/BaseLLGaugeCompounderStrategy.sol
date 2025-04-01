@@ -241,9 +241,10 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @return . The available amount for bidding on in the auction.
     function _kickAuction(address _from) internal virtual returns (uint256) {
         require(_from != address(asset) && _from != address(vault), "!kick");
+        address _auction = auction;
         uint256 _balance = ERC20(_from).balanceOf(address(this));
-        ERC20(_from).safeTransfer(auction, _balance);
-        return IAuction(auction).kick(_from);
+        ERC20(_from).safeTransfer(_auction, _balance);
+        return IAuction(_auction).kick(_from);
     }
 
     /// @dev Required for WETH unwrapping operations
