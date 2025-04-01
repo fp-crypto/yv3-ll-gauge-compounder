@@ -265,8 +265,8 @@ contract OperationTest is Setup {
         vm.startPrank(management);
         strategy.setAuction(address(_auction));
         strategy.setUseAuctions(true);
-        strategy.setDontDumpDYfi(true);
-        strategy.setDontSwapWeth(true);
+        strategy.setKeepDYfi(true);
+        strategy.setKeepWeth(true);
         _auction.enable(dYFI);
         vm.stopPrank();
 
@@ -335,8 +335,8 @@ contract OperationTest is Setup {
         vm.startPrank(management);
         strategy.setAuction(address(_auction));
         strategy.setUseAuctions(true);
-        strategy.setDontDumpDYfi(false);
-        strategy.setDontSwapWeth(true);
+        strategy.setKeepDYfi(false);
+        strategy.setKeepWeth(true);
         _auction.enable(WETH);
         vm.stopPrank();
 
@@ -416,8 +416,8 @@ contract OperationTest is Setup {
 
     function test_setters(
         IStrategyInterface strategy,
-        bool _dontDumpDYfi,
-        bool _dontSwapWeth,
+        bool _keepDYfi,
+        bool _keepWeth,
         bool _useAuctions,
         uint24 _wethToAssetSwapFee,
         uint256 _minWethToSwap
@@ -425,16 +425,16 @@ contract OperationTest is Setup {
         vm.assume(_isFixtureStrategy(strategy));
 
         vm.expectRevert("!management");
-        strategy.setDontDumpDYfi(_dontDumpDYfi);
+        strategy.setKeepDYfi(_keepDYfi);
         vm.prank(management);
-        strategy.setDontDumpDYfi(_dontDumpDYfi);
-        assertEq(_dontDumpDYfi, strategy.dontDumpDYfi());
+        strategy.setKeepDYfi(_keepDYfi);
+        assertEq(_keepDYfi, strategy.keepDYfi());
 
         vm.expectRevert("!management");
-        strategy.setDontSwapWeth(_dontSwapWeth);
+        strategy.setKeepWeth(_keepWeth);
         vm.prank(management);
-        strategy.setDontSwapWeth(_dontSwapWeth);
-        assertEq(_dontSwapWeth, strategy.dontSwapWeth());
+        strategy.setKeepWeth(_keepWeth);
+        assertEq(_keepWeth, strategy.keepWeth());
 
         vm.expectRevert("!management");
         strategy.setUseAuctions(_useAuctions);

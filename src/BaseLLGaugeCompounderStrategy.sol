@@ -26,13 +26,13 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev Defaults to false only allowing the parent vault to deposit
     bool public openDeposits;
 
-    /// @notice Flag to disable automatic conversion of dYFI rewards to WETH
+    /// @notice Flag to keep dYFI rewards instead of converting to WETH
     /// @dev When true, dYFI rewards will remain in the contract
-    bool public dontDumpDYfi;
+    bool public keepDYfi;
 
-    /// @notice Flag to disable automatic swapping of WETH to the strategy's asset
+    /// @notice Flag to keep WETH instead of swapping to the strategy's asset
     /// @dev When true, WETH will remain in the contract
-    bool public dontSwapWeth;
+    bool public keepWeth;
 
     /// @notice Flag to enable using auctions for token swaps
     /// @dev When true, uses auction-based swapping mechanism instead of Uniswap
@@ -83,7 +83,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
         if (address(asset) != WETH && _assetSwapUniFee != 0) {
             _setUniFees(WETH, address(asset), _assetSwapUniFee);
         } else {
-            dontSwapWeth = true;
+            keepWeth = true;
         }
         PARENT_VAULT = _parentVault;
         Y_GAUGE_SHARE_HOLDER = _yGaugeShareHolder;
@@ -125,12 +125,12 @@ abstract contract BaseLLGaugeCompounderStrategy is
     function _claimAndSellRewards() internal override {
         _claimDYfi();
 
-        if (!dontDumpDYfi) {
+        if (!keepDYfi) {
             dYFIHelper.dumpToWeth();
         }
 
         if (
-            !dontSwapWeth &&
+            !keepWeth &&
             address(asset) != address(WETH) &&
             uniFees[address(WETH)][address(asset)] != 0
         ) {
@@ -172,18 +172,18 @@ abstract contract BaseLLGaugeCompounderStrategy is
         openDeposits = _openDeposits;
     }
 
-    /// @notice Sets whether to disable automatic conversion of dYFI rewards to WETH
-    /// @param _dontDumpDYfi New value for dontDumpDYfi flag
-    /// @dev Can only be called by governance
-    function setDontDumpDYfi(bool _dontDumpDYfi) external onlyManagement {
-        dontDumpDYfi = _dontDumpDYfi;
+    /// @notice Sets whether to keep dYFI rewards instead of converting to WETH
+    /// @param _keepDYfi New value for keepDYfi flag
+    /// @dev Can only be called by management
+    function setKeepDYfi(bool _keepDYfi) external onlyManagement {
+        keepDYfi = _keepDYfi;
     }
 
-    /// @notice Sets whether to disable automatic swapping of WETH to strategy asset
-    /// @param _dontSwapWeth New value for dontSwapWeth flag
-    /// @dev Can only be called by governance
-    function setDontSwapWeth(bool _dontSwapWeth) external onlyManagement {
-        dontSwapWeth = _dontSwapWeth;
+    /// @notice Sets whether to keep WETH instead of swapping to strategy asset
+    /// @param _keepWeth New value for keepWeth flag
+    /// @dev Can only be called by management
+    function setKeepWeth(bool _keepWeth) external onlyManagement {
+        keepWeth = _keepWeth;
     }
 
     /// @notice Sets whether to use auctions for token swaps

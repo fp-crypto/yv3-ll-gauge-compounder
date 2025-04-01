@@ -24,11 +24,11 @@ interface IBaseLLGaugeCompounderStrategy is
     /// @notice The Wrapped Ether contract address
     function WETH() external view returns (address);
 
-    /// @notice Flag indicating if automatic conversion of dYFI rewards to WETH is disabled
-    function dontDumpDYfi() external view returns (bool);
+    /// @notice Flag indicating if dYFI rewards should be kept instead of converting to WETH
+    function keepDYfi() external view returns (bool);
 
-    /// @notice Flag indicating if automatic swapping of WETH to strategy asset is disabled
-    function dontSwapWeth() external view returns (bool);
+    /// @notice Flag indicating if WETH should be kept instead of swapping to strategy asset
+    function keepWeth() external view returns (bool);
 
     /// @notice Flag indicating if auctions should be used for token swaps
     function useAuctions() external view returns (bool);
@@ -57,13 +57,13 @@ interface IBaseLLGaugeCompounderStrategy is
                          MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Sets whether to disable automatic conversion of dYFI rewards to WETH
-    /// @param _dontDumpDYfi New value for dontDumpDYfi flag
-    function setDontDumpDYfi(bool _dontDumpDYfi) external;
+    /// @notice Sets whether to keep dYFI rewards instead of converting to WETH
+    /// @param _keepDYfi New value for keepDYfi flag
+    function setKeepDYfi(bool _keepDYfi) external;
 
-    /// @notice Sets whether to disable automatic swapping of WETH to strategy asset
-    /// @param _dontSwapWeth New value for dontSwapWeth flag
-    function setDontSwapWeth(bool _dontSwapWeth) external;
+    /// @notice Sets whether to keep WETH instead of swapping to strategy asset
+    /// @param _keepWeth New value for keepWeth flag
+    function setKeepWeth(bool _keepWeth) external;
 
     /// @notice Sets whether to use auctions for token swaps
     /// @param _useAuctions New value for useAuctions flag
