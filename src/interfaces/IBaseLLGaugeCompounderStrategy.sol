@@ -36,6 +36,9 @@ interface IBaseLLGaugeCompounderStrategy is
     /// @notice Flag indicating if auctions should be used for token swaps
     function useAuctions() external view returns (bool);
     
+    /// @notice Address of the auction contract used for token swaps
+    function auction() external view returns (address);
+    
     /// @notice Minimum amount of dYFI required to trigger conversion to WETH
     function minDYfiToSell() external view returns (uint64);
 

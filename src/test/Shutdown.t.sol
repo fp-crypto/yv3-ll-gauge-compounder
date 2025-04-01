@@ -2,6 +2,7 @@ pragma solidity ^0.8.18;
 
 import "forge-std/console2.sol";
 import {Setup, ERC20, IStrategyInterface} from "./utils/Setup.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract ShutdownTest is Setup {
     function setUp() public virtual override {
@@ -17,7 +18,7 @@ contract ShutdownTest is Setup {
         _amount = bound(
             _amount,
             minFuzzAmount[address(asset)],
-            maxFuzzAmount[address(asset)]
+            Math.min(maxFuzzAmount[address(asset)], strategy.maxDeposit(user))
         );
 
         // Deposit into strategy
@@ -57,7 +58,7 @@ contract ShutdownTest is Setup {
         _amount = bound(
             _amount,
             minFuzzAmount[address(asset)],
-            maxFuzzAmount[address(asset)]
+            Math.min(maxFuzzAmount[address(asset)], strategy.maxDeposit(user))
         );
 
         // Deposit into strategy
