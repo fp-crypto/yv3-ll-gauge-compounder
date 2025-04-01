@@ -420,7 +420,8 @@ contract OperationTest is Setup {
         bool _keepWeth,
         bool _useAuctions,
         uint24 _wethToAssetSwapFee,
-        uint256 _minWethToSwap
+        uint256 _minWethToSwap,
+        uint64 _minDYfiToSell
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
 
@@ -460,6 +461,12 @@ contract OperationTest is Setup {
         vm.prank(management);
         strategy.setMinWethToSwap(_minWethToSwap);
         assertEq(_minWethToSwap, strategy.minAmountToSell());
+
+        vm.expectRevert("!management");
+        strategy.setMinDYfiToSell(_minDYfiToSell);
+        vm.prank(management);
+        strategy.setMinDYfiToSell(_minDYfiToSell);
+        assertEq(_minDYfiToSell, strategy.minDYfiToSell());
     }
 
     function test_tendTrigger(
@@ -513,5 +520,71 @@ contract OperationTest is Setup {
         address vault = strategy.vault();
         vm.expectRevert("exists");
         vaultFactory.newLLCompounderVault(vault, "", "", 0);
+    }
+
+    function test_dyfi_below_threshold(
+        IStrategyInterface strategy,
+        uint256 _amount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        ERC20 asset = ERC20(strategy.asset());
+        address dYFI = tokenAddrs["dYFI"];
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            maxFuzzAmount[address(asset)]
+        );
+
+        // Disable health check
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
+
+        // Set a minimum dYFI threshold higher than what we'll airdrop
+        uint64 threshold = uint64(0.02e18); // 0.02 dYFI
+        uint256 smallReward = 0.01e18; // 0.01 dYFI (below threshold)
+
+        vm.prank(management);
+        strategy.setMinDYfiToSell(threshold);
+        assertEq(threshold, strategy.minDYfiToSell());
+
+        // Set keepDYfi to false to ensure threshold is the deciding factor
+        vm.prank(management);
+        strategy.setKeepDYfi(false);
+        assertEq(false, strategy.keepDYfi());
+
+        // Deposit into strategy
+        mintAndDepositIntoStrategy(strategy, user, _amount);
+        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+
+        // Airdrop a small amount of dYFI (below threshold)
+        airdropDYFI(address(strategy), smallReward);
+
+        // Report profit
+        vm.prank(keeper);
+        (uint256 profit, uint256 loss) = strategy.report();
+
+        // Check dYFI was not converted (still in the strategy)
+        assertApproxEq(loss, 0, 100);
+        assertEq(
+            ERC20(dYFI).balanceOf(address(strategy)),
+            smallReward,
+            "dYFI not kept"
+        );
+
+        // Airdrop more dYFI to exceed the threshold
+        airdropDYFI(address(strategy), threshold);
+        uint256 totalDYfi = smallReward + threshold;
+
+        // Report profit again
+        vm.prank(keeper);
+        (profit, loss) = strategy.report();
+
+        // Now dYFI should be converted since we're above threshold
+        assertEq(loss, 0, "!loss");
+        assertEq(
+            ERC20(dYFI).balanceOf(address(strategy)),
+            0,
+            "dYFI should be converted"
+        );
     }
 }

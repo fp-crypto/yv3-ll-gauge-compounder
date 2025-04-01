@@ -23,6 +23,9 @@ interface IBaseLLGaugeCompounderStrategy is
 
     /// @notice The Wrapped Ether contract address
     function WETH() external view returns (address);
+    
+    /// @notice The dYFI token contract address
+    function DYFI() external view returns (address);
 
     /// @notice Flag indicating if dYFI rewards should be kept instead of converting to WETH
     function keepDYfi() external view returns (bool);
@@ -32,6 +35,9 @@ interface IBaseLLGaugeCompounderStrategy is
 
     /// @notice Flag indicating if auctions should be used for token swaps
     function useAuctions() external view returns (bool);
+    
+    /// @notice Minimum amount of dYFI required to trigger conversion to WETH
+    function minDYfiToSell() external view returns (uint64);
 
     /// @notice Flag to control whether deposits are open to all addresses or restricted to the parent vault
     /// @dev When true, any address can deposit; when false, only the parent vault can deposit
@@ -81,6 +87,10 @@ interface IBaseLLGaugeCompounderStrategy is
     /// @notice Sets the minimum amount of WETH required to trigger a swap
     /// @param _minWethToSwap Minimum amount of WETH tokens (in wei) needed to execute a swap
     function setMinWethToSwap(uint256 _minWethToSwap) external;
+    
+    /// @notice Sets the minimum amount of dYFI required to trigger conversion to WETH
+    /// @param _minDYfiToSell Minimum amount of dYFI tokens (in wei) needed to execute conversion
+    function setMinDYfiToSell(uint64 _minDYfiToSell) external;
 
     /// @notice Sets the auction contract address
     /// @param _auction Address of the auction contract

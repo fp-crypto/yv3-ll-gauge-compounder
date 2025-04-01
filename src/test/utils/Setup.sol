@@ -140,6 +140,7 @@ contract Setup is ExtendedTest, IEvents {
             _strategy.acceptManagement();
             _strategy.setProfitMaxUnlockTime(1 hours);
             _strategy.setOpenDeposits(true);
+            _strategy.setMinDYfiToSell(0);
         }
         vm.stopPrank();
 

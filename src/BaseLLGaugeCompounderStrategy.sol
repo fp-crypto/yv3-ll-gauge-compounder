@@ -20,6 +20,9 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice The Wrapped Ether contract address
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    
+    /// @notice The dYFI token contract address
+    address public constant DYFI = 0x41252E8691e964f7DE35156B68493bAb6797a275;
 
     /// @notice Flag to control whether deposits are open to all addresses or restricted to the parent vault
     /// @dev When true, any address can deposit; when false, only the parent vault can deposit
@@ -41,6 +44,10 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @notice Address of the auction contract used for token swaps
     /// @dev Used when useAuctions is true
     address public auction;
+    
+    /// @notice Minimum amount of dYFI required to trigger conversion to WETH
+    /// @dev Only converts dYFI to WETH if balance is above this threshold
+    uint64 public minDYfiToSell;
 
     /// @notice The Yearn gauge contract this strategy interacts with
     /// @dev Immutable reference to the gauge that provides rewards
@@ -80,6 +87,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
     {
         Y_GAUGE = IGauge(_yGauge);
         minAmountToSell = 0.005e18; // minEthToSwap;
+        minDYfiToSell = uint64(0.01e18); // 0.01 dYFI default threshold
         if (address(asset) != WETH && _assetSwapUniFee != 0) {
             _setUniFees(WETH, address(asset), _assetSwapUniFee);
         } else {
@@ -121,11 +129,13 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice Claims dYFI rewards and optionally converts them to the strategy's asset
     /// @dev Override of Base4626Compounder._claimAndSellRewards()
-    /// @dev First claims dYFI, then optionally converts to WETH, then optionally swaps WETH to asset
+    /// @dev First claims dYFI, then optionally converts to WETH if above threshold, then optionally swaps WETH to asset
     function _claimAndSellRewards() internal override {
         _claimDYfi();
 
-        if (!keepDYfi) {
+        uint256 dYfiBalance = ERC20(DYFI).balanceOf(address(this));
+        
+        if (!keepDYfi && dYfiBalance >= minDYfiToSell) {
             dYFIHelper.dumpToWeth();
         }
 
@@ -207,6 +217,13 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @param _minWethToSwap Minimum amount of WETH tokens (in wei) needed to execute a swap
     function setMinWethToSwap(uint256 _minWethToSwap) external onlyManagement {
         minAmountToSell = _minWethToSwap;
+    }
+    
+    /// @notice Sets the minimum amount of dYFI required to trigger conversion to WETH
+    /// @dev Can only be called by management
+    /// @param _minDYfiToSell Minimum amount of dYFI tokens (in wei) needed to execute conversion
+    function setMinDYfiToSell(uint64 _minDYfiToSell) external onlyManagement {
+        minDYfiToSell = _minDYfiToSell;
     }
 
     /// @notice Sets the auction contract address
