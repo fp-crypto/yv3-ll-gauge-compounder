@@ -20,7 +20,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice The Wrapped Ether contract address
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    
+
     /// @notice The dYFI token contract address
     address public constant DYFI = 0x41252E8691e964f7DE35156B68493bAb6797a275;
 
@@ -44,7 +44,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @notice Address of the auction contract used for token swaps
     /// @dev Used when useAuctions is true
     address public auction;
-    
+
     /// @notice Minimum amount of dYFI required to trigger conversion to WETH
     /// @dev Only converts dYFI to WETH if balance is above this threshold
     uint64 public minDYfiToSell;
@@ -97,6 +97,21 @@ abstract contract BaseLLGaugeCompounderStrategy is
         Y_GAUGE_SHARE_HOLDER = _yGaugeShareHolder;
     }
 
+    /// @notice Returns the maximum amount of tokens that can be staked in the LL gauge
+    /// @dev This function is overridden by child strategy implementations to account for
+    /// limitations specific to different LL gauges
+    /// @return The maximum amount of vault tokens that can be staked in the gauge
+    /// @dev Returns max uint256 by default, but child strategies will likely return the 
+    /// gauge's maxDeposit value to prevent reverts when staking
+    function _stakeMaxDeposit()
+        internal
+        view
+        virtual
+        returns (uint256)
+    {
+        return type(uint256).max;
+    }
+
     /// @inheritdoc Base4626Compounder
     /// @notice Controls deposit limits based on the openDeposits flag and parent vault status
     /// @dev When openDeposits is false, only the parent vault can deposit; otherwise, anyone can deposit
@@ -107,7 +122,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
     ) public view virtual override returns (uint256) {
         if (!openDeposits && _owner != PARENT_VAULT) return 0;
         // Otherwise, use the standard deposit limit logic from the parent contract
-        return super.availableDepositLimit(_owner);
+        return Math.min(super.availableDepositLimit(_owner), vault.convertToAssets(_stakeMaxDeposit()));
     }
 
     /// @notice Calculate the maximum amount that can be withdrawn from all vaults
@@ -134,7 +149,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
         _claimDYfi();
 
         uint256 dYfiBalance = ERC20(DYFI).balanceOf(address(this));
-        
+
         if (!keepDYfi && dYfiBalance >= minDYfiToSell) {
             dYFIHelper.dumpToWeth();
         }
@@ -218,7 +233,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
     function setMinWethToSwap(uint256 _minWethToSwap) external onlyManagement {
         minAmountToSell = _minWethToSwap;
     }
-    
+
     /// @notice Sets the minimum amount of dYFI required to trigger conversion to WETH
     /// @dev Can only be called by management
     /// @param _minDYfiToSell Minimum amount of dYFI tokens (in wei) needed to execute conversion

@@ -52,10 +52,7 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @notice Stakes available vault tokens in the 1UP gauge
     /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
-        uint256 _stakeAmount = Math.min(
-            balanceOfVault(),
-            ONE_UP_GAUGE.maxDeposit(address(this))
-        );
+        uint256 _stakeAmount = Math.min(balanceOfVault(), _stakeMaxDeposit());
         ONE_UP_GAUGE.deposit(_stakeAmount, address(this));
     }
 
@@ -76,6 +73,11 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
                     ONE_UP_GAUGE.balanceOf(address(this))
                 )
             );
+    }
+
+    /// @inheritdoc BaseLLGaugeCompounderStrategy
+    function _stakeMaxDeposit() internal view override returns (uint256) {
+        return ONE_UP_GAUGE.maxDeposit(address(this));
     }
 
     /// @notice Claims dYFI rewards from the 1UP gauge

@@ -50,15 +50,9 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @notice Stakes available vault tokens in the Cove gauge
     /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
-        uint256 _stakeAmount = Math.min(
-            balanceOfVault(),
-            COVE_GAUGE.maxDeposit(address(this))
-        );
-
-        COVE_GAUGE.deposit(
-            Y_GAUGE.deposit(_stakeAmount, address(this)),
-            address(this)
-        );
+        uint256 _stakeAmount = Math.min(balanceOfVault(), _stakeMaxDeposit());
+        Y_GAUGE.deposit(_stakeAmount, address(this));
+        COVE_GAUGE.deposit(_stakeAmount, address(this));
     }
 
     /// @notice Unstakes tokens from the Cove gauge
@@ -80,14 +74,8 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     }
 
     /// @inheritdoc BaseLLGaugeCompounderStrategy
-    function availableDepositLimit(
-        address _owner
-    ) public view virtual override returns (uint256) {
-        return
-            Math.min(
-                super.availableDepositLimit(_owner),
-                vault.convertToAssets(COVE_GAUGE.maxDeposit(address(this)))
-            );
+    function _stakeMaxDeposit() internal view override returns (uint256) {
+        return COVE_GAUGE.maxDeposit(address(this));
     }
 
     /// @notice Claims dYFI rewards from the Cove gauge
