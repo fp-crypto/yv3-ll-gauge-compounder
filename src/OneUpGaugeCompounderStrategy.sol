@@ -71,7 +71,11 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @dev Converts gauge shares to underlying asset amount
     function balanceOfStake() public view override returns (uint256) {
         return
-            ONE_UP_GAUGE.convertToAssets(ONE_UP_GAUGE.balanceOf(address(this)));
+            Y_GAUGE.convertToAssets(
+                ONE_UP_GAUGE.convertToAssets(
+                    ONE_UP_GAUGE.balanceOf(address(this))
+                )
+            );
     }
 
     /// @notice Claims dYFI rewards from the 1UP gauge

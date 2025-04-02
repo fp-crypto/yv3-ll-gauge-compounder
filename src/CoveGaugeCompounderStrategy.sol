@@ -54,8 +54,11 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
             balanceOfVault(),
             COVE_GAUGE.maxDeposit(address(this))
         );
-        Y_GAUGE.deposit(_stakeAmount, address(this));
-        COVE_GAUGE.deposit(_stakeAmount, address(this));
+
+        COVE_GAUGE.deposit(
+            Y_GAUGE.deposit(_stakeAmount, address(this)),
+            address(this)
+        );
     }
 
     /// @notice Unstakes tokens from the Cove gauge
@@ -73,6 +76,17 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
         return
             Y_GAUGE.convertToAssets(
                 COVE_GAUGE.convertToAssets(COVE_GAUGE.balanceOf(address(this)))
+            );
+    }
+
+    /// @inheritdoc BaseLLGaugeCompounderStrategy
+    function availableDepositLimit(
+        address _owner
+    ) public view virtual override returns (uint256) {
+        return
+            Math.min(
+                super.availableDepositLimit(_owner),
+                vault.convertToAssets(COVE_GAUGE.maxDeposit(address(this)))
             );
     }
 

@@ -72,7 +72,7 @@ contract StakeDaoGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @return The amount of underlying tokens staked in the StakeDAO gauge
     /// @dev Converts gauge shares to underlying asset amount
     function balanceOfStake() public view override returns (uint256) {
-        return STAKE_DAO_LIQUIDITY_GAUGE.balanceOf(address(this));
+        return Y_GAUGE.convertToAssets(STAKE_DAO_LIQUIDITY_GAUGE.balanceOf(address(this)));
     }
 
     /// @notice Claims dYFI rewards from the StakeDAO gauge
