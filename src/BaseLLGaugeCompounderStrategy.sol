@@ -101,14 +101,9 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev This function is overridden by child strategy implementations to account for
     /// limitations specific to different LL gauges
     /// @return The maximum amount of vault tokens that can be staked in the gauge
-    /// @dev Returns max uint256 by default, but child strategies will likely return the 
+    /// @dev Returns max uint256 by default, but child strategies will likely return the
     /// gauge's maxDeposit value to prevent reverts when staking
-    function _stakeMaxDeposit()
-        internal
-        view
-        virtual
-        returns (uint256)
-    {
+    function _stakeMaxDeposit() internal view virtual returns (uint256) {
         return type(uint256).max;
     }
 
@@ -122,7 +117,14 @@ abstract contract BaseLLGaugeCompounderStrategy is
     ) public view virtual override returns (uint256) {
         if (!openDeposits && _owner != PARENT_VAULT) return 0;
         // Otherwise, use the standard deposit limit logic from the parent contract
-        return Math.min(super.availableDepositLimit(_owner), vault.convertToAssets(_stakeMaxDeposit()));
+        uint256 _maxStakeInAsset = vault.convertToAssets(_stakeMaxDeposit());
+        uint256 _idleAsset = balanceOfAsset();
+        if (_maxStakeInAsset <= _idleAsset) return 0;
+        return
+            Math.min(
+                _maxStakeInAsset - _idleAsset,
+                super.availableDepositLimit(_owner)
+            );
     }
 
     /// @notice Calculate the maximum amount that can be withdrawn from all vaults

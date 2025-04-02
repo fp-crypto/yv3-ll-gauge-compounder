@@ -151,23 +151,23 @@ contract Setup is ExtendedTest, IEvents {
         IStrategyInterface _strategy,
         address _user,
         uint256 _amount
-    ) public {
+    ) public returns (uint256) {
         ERC20 asset = ERC20(_strategy.asset());
 
         vm.prank(_user);
         asset.approve(address(_strategy), _amount);
 
         vm.prank(_user);
-        _strategy.deposit(_amount, _user);
+        return _strategy.deposit(_amount, _user);
     }
 
     function mintAndDepositIntoStrategy(
         IStrategyInterface _strategy,
         address _user,
         uint256 _amount
-    ) public {
+    ) public returns (uint256) {
         airdrop(ERC20(_strategy.asset()), _user, _amount);
-        depositIntoStrategy(_strategy, _user, _amount);
+        return depositIntoStrategy(_strategy, _user, _amount);
     }
 
     // For checking the amounts in the strategy

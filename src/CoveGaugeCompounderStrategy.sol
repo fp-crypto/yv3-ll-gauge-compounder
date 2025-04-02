@@ -50,8 +50,8 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @notice Stakes available vault tokens in the Cove gauge
     /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
-        uint256 _stakeAmount = Math.min(balanceOfVault(), _stakeMaxDeposit());
-        Y_GAUGE.deposit(_stakeAmount, address(this));
+        uint256 _stakeAmount = balanceOfVault();
+        _stakeAmount = Y_GAUGE.deposit(_stakeAmount, address(this));
         COVE_GAUGE.deposit(_stakeAmount, address(this));
     }
 

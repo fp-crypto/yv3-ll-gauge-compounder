@@ -52,8 +52,7 @@ contract OneUpGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     /// @notice Stakes available vault tokens in the 1UP gauge
     /// @dev Stakes the minimum of available balance and max deposit allowed
     function _stake() internal override {
-        uint256 _stakeAmount = Math.min(balanceOfVault(), _stakeMaxDeposit());
-        ONE_UP_GAUGE.deposit(_stakeAmount, address(this));
+        ONE_UP_GAUGE.deposit(balanceOfVault(), address(this));
     }
 
     /// @notice Unstakes tokens from the 1UP gauge

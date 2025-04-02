@@ -66,6 +66,73 @@ contract OperationTest is Setup {
         );
     }
 
+    function test_operationSplitDeposit(
+        IStrategyInterface strategy,
+        uint256 _amount,
+        uint256 _initialAmount,
+        uint256 _dyfiRewardAmount
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        ERC20 asset = ERC20(strategy.asset());
+        _amount = bound(
+            _amount,
+            minFuzzAmount[address(asset)],
+            Math.min(maxFuzzAmount[address(asset)], strategy.maxDeposit(user))
+        );
+        _initialAmount = bound(_initialAmount, 1e6, _amount - 1e6);
+        _dyfiRewardAmount = bound(
+            _dyfiRewardAmount,
+            strategy.minAmountToSell(),
+            Math.max(
+                Math.min(_amount / 500, maxDYFI()),
+                strategy.minAmountToSell() + 1
+            ) // airdrop no more than 0.5% of the strategy value
+        );
+
+        // Deposit into StakeDaoGaugeCompounderStrategyFactory
+        uint256 _amountDeposited = mintAndDepositIntoStrategy(
+            strategy,
+            user,
+            _initialAmount
+        );
+
+        assertEq(strategy.totalAssets(), _initialAmount, "!totalAssets");
+
+        skip(1 minutes);
+
+        airdropDYFI(address(strategy), _dyfiRewardAmount);
+
+        // Disable health check
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
+
+        // Report profit
+        vm.prank(keeper);
+        (uint256 profit, uint256 loss) = strategy.report();
+
+        // Check return Values
+        assertGe(profit, 0, "!profit");
+        assertEq(loss, 0, "!loss");
+        assertGt(asset.balanceOf(address(strategy)), 0);
+
+        skip(strategy.profitMaxUnlockTime());
+
+        if (strategy.maxDeposit(user) != 0) {
+            _amountDeposited += mintAndDepositIntoStrategy(
+                strategy,
+                user,
+                Math.min(_amount - _initialAmount, strategy.maxDeposit(user))
+            );
+        }
+
+        // Withdraw all funds
+        vm.startPrank(user);
+        strategy.redeem(strategy.balanceOf(user), user, user);
+        vm.stopPrank();
+
+        assertGe(asset.balanceOf(user), _amountDeposited, "!final balance");
+    }
+
     function test_profitableReport_airdrop(
         IStrategyInterface strategy,
         uint256 _amount,
@@ -522,7 +589,7 @@ contract OperationTest is Setup {
         vaultFactory.newLLCompounderVault(vault, "", "", 0);
     }
 
-    function test_dyfi_below_threshold(
+    function test_dyfiBelowThreshold(
         IStrategyInterface strategy,
         uint256 _amount
     ) public {
