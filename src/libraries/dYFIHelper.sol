@@ -51,17 +51,16 @@ library dYFIHelper {
     ) public returns (uint256 _wethAmount) {
         if (_dyfiAmount == 0) return 0;
 
-        uint256 amountOutCurve = CURVE_DYFI_ETH.get_dy(0, 1, _dyfiAmount);
+        uint256 amountOutSwap = CURVE_DYFI_ETH.get_dy(0, 1, _dyfiAmount);
 
         uint256 ethRequired = DYFI_REDEEMER.eth_required(_dyfiAmount);
-        uint256 amountOutRedeem = CURVE_YFI_ETH.get_dy(1, 0, _dyfiAmount);
-        if (amountOutRedeem > ethRequired) {
-            amountOutRedeem -= ethRequired;
-        } else {
-            amountOutRedeem = 0;
+        uint256 amountOutYfiEth = CURVE_YFI_ETH.get_dy(1, 0, _dyfiAmount);
+        uint256 amountOutRedeem;
+        if (amountOutYfiEth > ethRequired) {
+            amountOutRedeem = amountOutYfiEth - ethRequired;
         }
 
-        if (amountOutRedeem > amountOutCurve) {
+        if (amountOutRedeem > amountOutSwap) {
             // Setup flash loan parameters
             address[] memory tokens = new address[](1);
             tokens[0] = WETH;
@@ -81,7 +80,7 @@ library dYFIHelper {
                 0,
                 1,
                 _dyfiAmount,
-                amountOutCurve
+                amountOutSwap
             );
         }
     }
@@ -115,10 +114,17 @@ library dYFIHelper {
         IERC20(WETH).safeTransfer(address(BALANCER_VAULT), ethRequired);
     }
 
-    /// @notice Force approves token spending with an extra 1 for gas savings
+    /// @notice Force approves token spending with an extra 1 wei for gas optimization
+    /// @dev Adding 1 wei to the approval amount is an EVM gas optimization:
+    ///      1. Keeps storage slots in non-zero state, which costs less gas than
+    ///         allocating a new storage slot that was previously zero
+    ///      2. In EVM, modifying a non-zero storage slot costs less gas than
+    ///         modifying a slot from zero to non-zero
+    ///      3. This is particularly efficient for protocols with frequent approvals
+    ///         as it reduces gas costs over multiple transactions
     /// @param _token The token to approve spending of
     /// @param _spender The address to approve spending for
-    /// @param _amount The amount to approve (will add 1 wei as buffer)
+    /// @param _amount The amount to approve (will add 1 wei as optimization)
     function approveSpend(
         address _token,
         address _spender,

@@ -17,6 +17,20 @@ import {IEvents} from "@tokenized-strategy/interfaces/IEvents.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+// Interface for Chainlink Aggregator
+interface AggregatorV3Interface {
+    function latestRoundData()
+        external
+        view
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        );
+}
+
 interface IFactory {
     function governance() external view returns (address);
 
@@ -28,6 +42,9 @@ interface IFactory {
 contract Setup is ExtendedTest, IEvents {
     IStrategyInterface[] public fixtureStrategy;
 
+    // Chainlink feed addresses
+    address public constant ETH_USD_FEED = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+    address public constant YFI_USD_FEED = 0xA027702dbb89fbd58938e4324ac03B58d812b0E1;
 
     LLGaugeCompounderVaultFactory public vaultFactory;
 
@@ -264,5 +281,46 @@ contract Setup is ExtendedTest, IEvents {
             if (fixtureStrategy[i] == _strategy) return true;
         }
         return false;
+    }
+    
+    /**
+     * @notice Mock Chainlink Oracle responses to prevent "price too old" errors during testing
+     * @dev This function mocks the Chainlink oracle to return the latest price data
+     *      with the current block.timestamp, which prevents price staleness errors
+     *      that can occur during testing when time is manipulated with vm.skip()
+     * @param oracle The Chainlink oracle address to mock
+     */
+    function mockChainlinkOracle(address oracle) internal {
+        // Fetch the current round data
+        (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            ,  // updatedAt - we'll replace this
+            uint80 answeredInRound
+        ) = AggregatorV3Interface(oracle).latestRoundData();
+        
+        // Mock the latestRoundData function to always return fresh data
+        vm.mockCall(
+            oracle,
+            abi.encodeWithSelector(AggregatorV3Interface.latestRoundData.selector),
+            abi.encode(
+                roundId, 
+                answer, 
+                startedAt, 
+                block.timestamp, // Keep the updatedAt timestamp current
+                answeredInRound
+            )
+        );
+    }
+    
+    /**
+     * @notice Mock dYFI price feed oracles needed for the tests
+     * @dev This function mocks the Chainlink oracles used in the dYFI strategy
+     *      to prevent "price too old" errors during time-skipping tests
+     */
+    function mockDYfiPriceFeeds() internal {
+        mockChainlinkOracle(ETH_USD_FEED);
+        mockChainlinkOracle(YFI_USD_FEED);
     }
 }

@@ -48,7 +48,11 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     }
 
     /// @notice Stakes available vault tokens in the Cove gauge
-    /// @dev Stakes the minimum of available balance and max deposit allowed
+    /// @dev The staking process for Cove follows a two-step sequence:
+    ///      1. Deposit vault tokens into Y_GAUGE, receiving Y_GAUGE shares
+    ///      2. Deposit those Y_GAUGE shares into COVE_GAUGE
+    ///      The actual amount staked depends on what Y_GAUGE.deposit returns, which
+    ///      may be less than requested if the gauge has internal limitations.
     function _stake() internal override {
         uint256 _stakeAmount = balanceOfVault();
         _stakeAmount = Y_GAUGE.deposit(_stakeAmount, address(this));
@@ -56,8 +60,12 @@ contract CoveGaugeCompounderStrategy is BaseLLGaugeCompounderStrategy {
     }
 
     /// @notice Unstakes tokens from the Cove gauge
+    /// @dev The unstaking process for Cove is the reverse of staking:
+    ///      1. Withdraw from COVE_GAUGE first to get Y_GAUGE tokens
+    ///      2. Then withdraw from Y_GAUGE to get vault tokens
+    ///      This sequence is critical to maintain the proper withdrawal flow and
+    ///      ensure tokens are properly unstaked from both gauges.
     /// @param _amount The amount of tokens to unstake
-    /// @dev Withdraws directly to this contract's address
     function _unStake(uint256 _amount) internal override {
         COVE_GAUGE.withdraw(_amount, address(this), address(this));
         Y_GAUGE.withdraw(_amount, address(this), address(this));

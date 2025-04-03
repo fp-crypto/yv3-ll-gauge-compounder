@@ -43,6 +43,9 @@ contract OperationTest is Setup {
 
         skip(10 minutes);
 
+        // Mock dYFI price feeds after skipping time but before reporting
+        mockDYfiPriceFeeds();
+
         // Report profit
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
@@ -66,7 +69,7 @@ contract OperationTest is Setup {
         );
     }
 
-    function test_operationSplitDeposit(
+    function test_operation_splitDeposit(
         IStrategyInterface strategy,
         uint256 _amount,
         uint256 _initialAmount,
@@ -76,10 +79,14 @@ contract OperationTest is Setup {
         ERC20 asset = ERC20(strategy.asset());
         _amount = bound(
             _amount,
-            minFuzzAmount[address(asset)],
+            minFuzzAmount[address(asset)] * 2,
             Math.min(maxFuzzAmount[address(asset)], strategy.maxDeposit(user))
         );
-        _initialAmount = bound(_initialAmount, 1e6, _amount - 1e6);
+        _initialAmount = bound(
+            _initialAmount,
+            minFuzzAmount[address(asset)],
+            _amount - minFuzzAmount[address(asset)]
+        );
         _dyfiRewardAmount = bound(
             _dyfiRewardAmount,
             strategy.minAmountToSell(),
@@ -89,7 +96,7 @@ contract OperationTest is Setup {
             ) // airdrop no more than 0.5% of the strategy value
         );
 
-        // Deposit into StakeDaoGaugeCompounderStrategyFactory
+        // Deposit into strategy
         uint256 _amountDeposited = mintAndDepositIntoStrategy(
             strategy,
             user,
@@ -105,6 +112,9 @@ contract OperationTest is Setup {
         // Disable health check
         vm.prank(management);
         strategy.setDoHealthCheck(false);
+
+        // Mock dYFI price feeds after skipping time but before reporting
+        mockDYfiPriceFeeds();
 
         // Report profit
         vm.prank(keeper);
@@ -160,6 +170,9 @@ contract OperationTest is Setup {
         assertEq(strategy.totalAssets(), _amount, "!totalAssets");
 
         airdropDYFI(address(strategy), _dyfiRewardAmount);
+
+        // Mock dYFI price feeds before reporting
+        mockDYfiPriceFeeds();
 
         // Report profit
         vm.prank(keeper);
@@ -218,6 +231,9 @@ contract OperationTest is Setup {
             abi.encode(0)
         );
 
+        // Mock dYFI price feeds before reporting
+        mockDYfiPriceFeeds();
+
         // Report profit
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
@@ -274,6 +290,9 @@ contract OperationTest is Setup {
             dYFIHelper.CURVE_YFI_ETH.get_dy.selector,
             abi.encode(0)
         );
+
+        // Mock dYFI price feeds before reporting
+        mockDYfiPriceFeeds();
 
         // Report profit
         vm.prank(keeper);
@@ -338,6 +357,9 @@ contract OperationTest is Setup {
         vm.stopPrank();
 
         skip(10 minutes);
+
+        // Mock dYFI price feeds after skipping time but before reporting
+        mockDYfiPriceFeeds();
 
         // Report profit
         vm.prank(keeper);
@@ -409,6 +431,9 @@ contract OperationTest is Setup {
 
         skip(10 minutes);
 
+        // Mock dYFI price feeds after skipping time but before reporting
+        mockDYfiPriceFeeds();
+
         // Report profit
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
@@ -457,6 +482,9 @@ contract OperationTest is Setup {
             dYFIHelper.DYFI_REDEEMER.eth_required.selector,
             abi.encode(type(uint256).max)
         );
+
+        // Mock dYFI price feeds after skipping time but before reporting
+        mockDYfiPriceFeeds();
 
         // Report profit
         vm.prank(keeper);
@@ -563,6 +591,9 @@ contract OperationTest is Setup {
         (trigger, ) = strategy.tendTrigger();
         assertTrue(!trigger);
 
+        // Mock dYFI price feeds after skipping time but before reporting
+        mockDYfiPriceFeeds();
+
         vm.prank(keeper);
         strategy.report();
 
@@ -626,6 +657,9 @@ contract OperationTest is Setup {
         // Airdrop a small amount of dYFI (below threshold)
         airdropDYFI(address(strategy), smallReward);
 
+        // Mock dYFI price feeds before reporting
+        mockDYfiPriceFeeds();
+
         // Report profit
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
@@ -641,6 +675,9 @@ contract OperationTest is Setup {
         // Airdrop more dYFI to exceed the threshold
         airdropDYFI(address(strategy), threshold);
         uint256 totalDYfi = smallReward + threshold;
+
+        // Mock dYFI price feeds before reporting again
+        mockDYfiPriceFeeds();
 
         // Report profit again
         vm.prank(keeper);

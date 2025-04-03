@@ -99,19 +99,24 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice Returns the maximum amount of tokens that can be staked in the LL gauge
     /// @dev This function is overridden by child strategy implementations to account for
-    /// limitations specific to different LL gauges
+    ///      limitations specific to different LL gauges.
+    ///      Returns max uint256 by default, but child strategies will likely return the
+    ///      gauge's maxDeposit value to prevent reverts when staking.
     /// @return The maximum amount of vault tokens that can be staked in the gauge
-    /// @dev Returns max uint256 by default, but child strategies will likely return the
-    /// gauge's maxDeposit value to prevent reverts when staking
     function _stakeMaxDeposit() internal view virtual returns (uint256) {
         return type(uint256).max;
     }
 
     /// @inheritdoc Base4626Compounder
-    /// @notice Controls deposit limits based on the openDeposits flag and parent vault status
-    /// @dev When openDeposits is false, only the parent vault can deposit; otherwise, anyone can deposit
+    /// @notice Determines how much an address can deposit based on multiple constraints
+    /// @dev This function applies several deposit limit checks in sequence:
+    ///      1. Access control: If openDeposits is false and caller isn't PARENT_VAULT, return 0
+    ///      2. Gauge capacity: Convert gauge's max deposit to asset amount (_maxStakeInAsset)
+    ///      3. Existing idle assets: If we already have enough idle assets, return 0
+    ///      4. Available capacity: Return min of (gauge capacity minus idle assets) and parent limit
+    ///      This ensures we don't accept deposits we can't stake, while respecting other limits.
     /// @param _owner The address attempting to deposit
-    /// @return The available deposit limit for the given address
+    /// @return The maximum amount (in asset terms) that _owner can deposit
     function availableDepositLimit(
         address _owner
     ) public view virtual override returns (uint256) {
@@ -126,27 +131,34 @@ abstract contract BaseLLGaugeCompounderStrategy is
                 super.availableDepositLimit(_owner)
             );
     }
-
-    /// @notice Calculate the maximum amount that can be withdrawn from all vaults
+    /// @notice Calculate the maximum amount that can be withdrawn from staked vault shares
+    /// @dev Calculates the maximum redeemable amount by taking the minimum of:
+    ///      1. The strategy's staked balance
+    ///      2. The maximum amount the gauge can redeem from the vault
+    ///      3. The maximum amount the gauge share holder can redeem from the gauge
+    ///      Then converts this share amount to the equivalent asset amount.
     /// @return The maximum withdrawable amount in terms of the underlying asset
-    /// @dev Calculates the total withdrawable by combining this addresses vaults shares and the y_gauges shares
+    /// Ignores vault shares since the strategy should never hold raw vault shares
     function vaultsMaxWithdraw() public view override returns (uint256) {
-        return
-            vault.convertToAssets(
-                vault.maxRedeem(address(this)) +
-                    Math.min(
-                        Math.min(
-                            vault.maxRedeem(address(Y_GAUGE)),
-                            Y_GAUGE.maxRedeem(Y_GAUGE_SHARE_HOLDER)
-                        ),
-                        balanceOfStake()
-                    )
-            );
+        uint256 _stakeMaxRedeem = Math.min(
+            balanceOfStake(),
+            Math.min(
+                vault.maxRedeem(address(Y_GAUGE)),
+                Y_GAUGE.maxRedeem(Y_GAUGE_SHARE_HOLDER)
+            )
+        );
+
+        return vault.convertToAssets(_stakeMaxRedeem);
     }
 
-    /// @notice Claims dYFI rewards and optionally converts them to the strategy's asset
-    /// @dev Override of Base4626Compounder._claimAndSellRewards()
-    /// @dev First claims dYFI, then optionally converts to WETH if above threshold, then optionally swaps WETH to asset
+    /// @notice Claims dYFI rewards and converts them according to strategy configuration
+    /// @dev Override of Base4626Compounder._claimAndSellRewards().
+    ///      Follows a multi-step process:
+    ///      1. Claims dYFI rewards through the gauge-specific _claimDYfi implementation
+    ///      2. If keepDYfi is false AND we have enough dYFI (>= minDYfiToSell), converts dYFI to WETH
+    ///      3. If keepWeth is false AND asset isn't WETH AND we have a valid swap fee set, swaps WETH to asset
+    ///      This design allows management to control each step of the conversion process based on
+    ///      market conditions by toggling flags or adjusting thresholds.
     function _claimAndSellRewards() internal override {
         _claimDYfi();
 
@@ -174,12 +186,18 @@ abstract contract BaseLLGaugeCompounderStrategy is
     /// @dev Must be implemented by derived contracts to handle specific gauge claiming logic
     function _claimDYfi() internal virtual;
 
-    /// @notice Callback function for Balancer flash loans
-    /// @dev Called by Balancer Vault during flash loan execution
-    /// @param . Array of token addresses for the flash loan
-    /// @param . Array of amounts for each token
-    /// @param feeAmounts Array of fee amounts for each token
-    /// @param userData Additional data passed through the flash loan
+    /// @notice Callback function for Balancer flash loans used in dYFI redemption
+    /// @dev Called by Balancer Vault during flash loan execution as part of the redemption process.
+    ///      Security checks:
+    ///      1. Ensures caller is the legitimate Balancer Vault
+    ///      2. Verifies flash loan has no fees (we only use fee-free flash loans)
+    ///      3. Delegates execution to dYFIHelper which has the redemption logic
+    ///      This function integrates with Balancer's flash loan system to perform atomic
+    ///      redemption of dYFI tokens at optimal rates.
+    /// @param . Array of token addresses for the flash loan (unused but required by interface)
+    /// @param . Array of amounts for each token (unused but required by interface)
+    /// @param feeAmounts Array of fee amounts for each token (must be zero)
+    /// @param userData Additional data passed through the flash loan (contains redemption parameters)
     function receiveFlashLoan(
         address[] calldata /*tokens*/,
         uint256[] calldata /*amounts*/,
@@ -269,10 +287,15 @@ abstract contract BaseLLGaugeCompounderStrategy is
         return _kickAuction(_from);
     }
 
-    /// @notice Internal function to initiate an auction
-    /// @dev Transfers tokens to the auction contract and starts the auction
-    /// @param _from The token to be sold in the auction
-    /// @return . The available amount for bidding on in the auction.
+    /// @notice Internal function to initiate an auction for reward tokens
+    /// @dev Transfers tokens to the auction contract and starts the auction process.
+    ///      Security features:
+    ///      1. Prevents auctioning the strategy's underlying asset or vault tokens
+    ///      2. Transfers all available balance of the token to the auction contract
+    ///      3. Relies on the auction contract to properly handle the kicked auction
+    ///      4. The auction contract has already been validated in setAuction()
+    /// @param _from The token to be sold in the auction (e.g., dYFI or WETH)
+    /// @return The available amount for bidding on in the auction
     function _kickAuction(address _from) internal virtual returns (uint256) {
         require(_from != address(asset) && _from != address(vault), "!kick");
         address _auction = auction;
