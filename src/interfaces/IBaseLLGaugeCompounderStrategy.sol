@@ -17,13 +17,17 @@ interface IBaseLLGaugeCompounderStrategy is
 
     function Y_GAUGE() external view returns (address);
 
+    function Y_GAUGE_SHARE_HOLDER() external view returns (address);
+    
+    function LOCKER_TYPE_HASH() external view returns (bytes32);
+
     /// @notice The parent allocator vault that distributes funds between LL strategies
     /// @dev This vault is responsible for allocating assets between different LL providers
     function PARENT_VAULT() external view returns (address);
 
     /// @notice The Wrapped Ether contract address
     function WETH() external view returns (address);
-    
+
     /// @notice The dYFI token contract address
     function DYFI() external view returns (address);
 
@@ -35,10 +39,10 @@ interface IBaseLLGaugeCompounderStrategy is
 
     /// @notice Flag indicating if auctions should be used for token swaps
     function useAuctions() external view returns (bool);
-    
+
     /// @notice Address of the auction contract used for token swaps
     function auction() external view returns (address);
-    
+
     /// @notice Minimum amount of dYFI required to trigger conversion to WETH
     function minDYfiToSell() external view returns (uint64);
 
@@ -90,7 +94,7 @@ interface IBaseLLGaugeCompounderStrategy is
     /// @notice Sets the minimum amount of WETH required to trigger a swap
     /// @param _minWethToSwap Minimum amount of WETH tokens (in wei) needed to execute a swap
     function setMinWethToSwap(uint256 _minWethToSwap) external;
-    
+
     /// @notice Sets the minimum amount of dYFI required to trigger conversion to WETH
     /// @param _minDYfiToSell Minimum amount of dYFI tokens (in wei) needed to execute conversion
     function setMinDYfiToSell(uint64 _minDYfiToSell) external;

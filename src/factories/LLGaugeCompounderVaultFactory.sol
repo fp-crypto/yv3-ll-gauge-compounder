@@ -103,9 +103,15 @@ contract LLGaugeCompounderVaultFactory {
 
         uint256 roles = Roles.ADD_STRATEGY_MANAGER |
             Roles.DEPOSIT_LIMIT_MANAGER |
-            Roles.MAX_DEBT_MANAGER;
+            Roles.MAX_DEBT_MANAGER |
+            Roles.DEBT_MANAGER;
         _vault.set_role(address(this), roles);
         _vault.set_deposit_limit(type(uint256).max);
+        _vault.set_auto_allocate(true);
+        _vault.set_role(
+            0x787aba336583f4A1D4f8cBBFDFFD49f3a38De665,
+            Roles.DEBT_MANAGER
+        ); // TODO: Delete before prod
 
         LLTriple memory _strategies = strategyDeployments(_yGauge);
 
@@ -139,7 +145,8 @@ contract LLGaugeCompounderVaultFactory {
         );
 
         _vault.remove_role(address(this), roles);
-        _vault.transfer_role_manager(ROLE_MANAGER);
+        //_vault.transfer_role_manager(ROLE_MANAGER);
+        _vault.transfer_role_manager(0x787aba336583f4A1D4f8cBBFDFFD49f3a38De665); // TODO: Delete before prod
 
         deployments[_yGauge] = address(_vault);
 

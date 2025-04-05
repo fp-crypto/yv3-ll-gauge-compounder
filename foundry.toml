@@ -13,6 +13,8 @@ remappings = [
     "forge-std/=lib/forge-std/src/",
     "@tokenized-strategy/=lib/tokenized-strategy/src/",
     "@periphery/=lib/tokenized-strategy-periphery/src/",
+    "@uniswap-v3-core/=lib/uniswap-v3-core/contracts/",
+    "@createx-forge=lib/createx-forge/",
 ]
 
 [fuzz]

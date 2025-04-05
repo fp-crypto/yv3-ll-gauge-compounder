@@ -55,11 +55,13 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     /// @notice The protocol specific address that holds gauge tokens
     /// @dev Immutable reference to the gauge token holder
-    address internal immutable Y_GAUGE_SHARE_HOLDER;
+    address public immutable Y_GAUGE_SHARE_HOLDER;
 
     /// @notice The parent allocator vault that distributes funds between LL strategies
     /// @dev This vault is responsible for allocating assets between different LL providers
     address public immutable PARENT_VAULT;
+
+    bytes32 public immutable LOCKER_TYPE_HASH;
 
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
@@ -95,6 +97,7 @@ abstract contract BaseLLGaugeCompounderStrategy is
         }
         PARENT_VAULT = _parentVault;
         Y_GAUGE_SHARE_HOLDER = _yGaugeShareHolder;
+        LOCKER_TYPE_HASH = keccak256(bytes(_lockerName));
     }
 
     /// @notice Returns the maximum amount of tokens that can be staked in the LL gauge
