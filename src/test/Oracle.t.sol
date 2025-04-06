@@ -11,6 +11,8 @@ contract OracleTest is Setup {
     function setUp() public override {
         super.setUp();
         oracle = new StrategyAprOracle(management);
+        vm.prank(management);
+        oracle.setIsStable(tokenAddrs["crvUSD"], true);
     }
 
     function checkOracle(address _strategy, uint256 _delta) public {
@@ -20,6 +22,13 @@ contract OracleTest is Setup {
         console.log("baseApr: %e", oracle.baseApr(_strategy, 0));
         console.log("dyfiApr: %e", oracle.dyfiApr(_strategy, 0));
         
+        // Debug additional information
+        address strategyAsset = address(IStrategyInterface(_strategy).asset());
+        uint256 totalAssets = IStrategyInterface(_strategy).totalAssets();
+        console.log("totalAssets: %e", totalAssets);
+        console.log("Asset address: %s", strategyAsset);
+        console.log("Is stable: %s", oracle.isStable(strategyAsset) ? "true" : "false");
+        
         // Should be greater than 0 but likely less than 100%
         assertGt(currentApr, 0, "ZERO");
         assertLt(currentApr, 1e18, "+100%");
@@ -28,7 +37,7 @@ contract OracleTest is Setup {
             _strategy,
             -int256(_delta)
         );
-        console.log("negativeDebtChangeApr: %e", currentApr);
+        console.log("negativeDebtChangeApr: %e", negativeDebtChangeApr);
 
         // The apr should go up if deposits go down
         assertLt(currentApr, negativeDebtChangeApr, "negative change");
@@ -37,7 +46,7 @@ contract OracleTest is Setup {
             _strategy,
             int256(_delta)
         );
-        console.log("positiveDebtChangeApr: %e", currentApr);
+        console.log("positiveDebtChangeApr: %e", positiveDebtChangeApr);
 
         // The apr should go down if deposits go up
         assertGt(currentApr, positiveDebtChangeApr, "positive change");
@@ -61,6 +70,7 @@ contract OracleTest is Setup {
         uint256 _delta = (_amount * _percentChange) / MAX_BPS;
 
         mintAndDepositIntoStrategy(strategy, user, _amount);
+
         checkOracle(address(strategy), _delta);
     }
 }

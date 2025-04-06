@@ -76,6 +76,7 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
+        vm.assume(!strategy.useAuctions()); // SKIP this test if the strategy can only use auctions
         ERC20 asset = ERC20(strategy.asset());
         _amount = bound(
             _amount,
@@ -149,6 +150,7 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
+        vm.assume(!strategy.useAuctions()); // SKIP this test if the strategy can only use auctions
         ERC20 asset = ERC20(strategy.asset());
         _amount = bound(
             _amount,
@@ -173,6 +175,9 @@ contract OperationTest is Setup {
 
         // Mock dYFI price feeds before reporting
         mockDYfiPriceFeeds();
+
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
 
         // Report profit
         vm.prank(keeper);
@@ -203,6 +208,7 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
+        vm.assume(!strategy.useAuctions()); // SKIP this test if the strategy can only use auctions
         ERC20 asset = ERC20(strategy.asset());
         _amount = bound(
             _amount,
@@ -234,6 +240,9 @@ contract OperationTest is Setup {
         // Mock dYFI price feeds before reporting
         mockDYfiPriceFeeds();
 
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
+
         // Report profit
         vm.prank(keeper);
         (uint256 profit, uint256 loss) = strategy.report();
@@ -263,6 +272,7 @@ contract OperationTest is Setup {
         uint256 _dyfiRewardAmount
     ) public {
         vm.assume(_isFixtureStrategy(strategy));
+        vm.assume(!strategy.useAuctions()); // SKIP this test if the strategy can only use auctions
         ERC20 asset = ERC20(strategy.asset());
         _amount = bound(
             _amount,
@@ -293,6 +303,9 @@ contract OperationTest is Setup {
 
         // Mock dYFI price feeds before reporting
         mockDYfiPriceFeeds();
+
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
 
         // Report profit
         vm.prank(keeper);

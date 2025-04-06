@@ -43,8 +43,10 @@ contract Setup is ExtendedTest, IEvents {
     IStrategyInterface[] public fixtureStrategy;
 
     // Chainlink feed addresses
-    address public constant ETH_USD_FEED = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
-    address public constant YFI_USD_FEED = 0xA027702dbb89fbd58938e4324ac03B58d812b0E1;
+    address public constant ETH_USD_FEED =
+        0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+    address public constant YFI_USD_FEED =
+        0xA027702dbb89fbd58938e4324ac03B58d812b0E1;
 
     LLGaugeCompounderVaultFactory public vaultFactory;
 
@@ -112,7 +114,8 @@ contract Setup is ExtendedTest, IEvents {
         // Deploy strategy and set variables
         setUpStrategies(IStrategy(tokenAddrs["yvWETH-2"]), 0);
         setUpStrategies(IStrategy(tokenAddrs["yvUSDC-1"]), 500);
-        //setUpStrategies(IStrategy(tokenAddrs["yvDAI-2"]), 500);
+        setUpStrategies(IStrategy(tokenAddrs["yvDAI-2"]), 500);
+        setUpStrategies(IStrategy(tokenAddrs["yvcrvUSD-2"]), 0);
 
         factory = fixtureStrategy[0].FACTORY();
 
@@ -134,12 +137,8 @@ contract Setup is ExtendedTest, IEvents {
             wethAssetSwapFee
         );
 
-        LLGaugeCompounderVaultFactory.LLTriple
-            memory _strategies = vaultFactory.strategyDeploymentsByVault(
-                address(vault)
-            );
-
-        uint256 i = fixtureStrategy.length;
+        LLGaugeCompounderVaultFactory.LLTriple memory _strategies = vaultFactory
+            .strategyDeploymentsByVault(address(vault));
 
         fixtureStrategy.push(IStrategyInterface(_strategies.cove));
         vm.label(_strategies.cove, "CoveStrategy");
@@ -152,12 +151,15 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(IStrategyInterface(_strategies.cove).Y_GAUGE(), "yGauge");
 
         vm.startPrank(management);
-        for (; i < fixtureStrategy.length; ++i) {
+        for (uint256 i; i < fixtureStrategy.length; ++i) {
             IStrategyInterface _strategy = fixtureStrategy[i];
             _strategy.acceptManagement();
             _strategy.setProfitMaxUnlockTime(1 hours);
             _strategy.setOpenDeposits(true);
             _strategy.setMinDYfiToSell(0);
+            _strategy.setUseAuctions(
+                wethAssetSwapFee == 0 && _strategy.asset() != tokenAddrs["WETH"]
+            );
         }
         vm.stopPrank();
 
@@ -224,27 +226,15 @@ contract Setup is ExtendedTest, IEvents {
             );
     }
 
-    // function setFees(uint16 _protocolFee, uint16 _performanceFee) public {
-    //     address gov = IFactory(factory).governance();
-
-    //     // Need to make sure there is a protocol fee recipient to set the fee.
-    //     vm.prank(gov);
-    //     IFactory(factory).set_protocol_fee_recipient(gov);
-
-    //     vm.prank(gov);
-    //     IFactory(factory).set_protocol_fee_bps(_protocolFee);
-
-    //     vm.prank(management);
-    //     strategy.setPerformanceFee(_performanceFee);
-    // }
-
     function _setTokenAddrs() internal {
         _setTokenAddr("WETH", 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
         _setTokenAddr("USDC", 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
         _setTokenAddr("DAI", 0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        _setTokenAddr("crvUSD", 0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E);
         _setTokenAddr("yvWETH-2", 0xAc37729B76db6438CE62042AE1270ee574CA7571);
         _setTokenAddr("yvUSDC-1", 0xBe53A109B494E5c9f97b9Cd39Fe969BE68BF6204);
         _setTokenAddr("yvDAI-2", 0x92545bCE636E6eE91D88D2D017182cD0bd2fC22e);
+        _setTokenAddr("yvcrvUSD-2", 0xBF319dDC2Edc1Eb6FDf9910E39b37Be221C8805F);
         _setTokenAddr("dYFI", 0x41252E8691e964f7DE35156B68493bAb6797a275);
     }
 
@@ -257,9 +247,11 @@ contract Setup is ExtendedTest, IEvents {
         maxFuzzAmount[tokenAddrs["WETH"]] = 1_000e18;
         minFuzzAmount[tokenAddrs["WETH"]] = 1e18;
         maxFuzzAmount[tokenAddrs["USDC"]] = 1_000_000e6;
-        minFuzzAmount[tokenAddrs["USDC"]] = 1000e6;
+        minFuzzAmount[tokenAddrs["USDC"]] = 1_000e6;
         maxFuzzAmount[tokenAddrs["DAI"]] = 1_000_000e18;
-        minFuzzAmount[tokenAddrs["DAI"]] = 1000e18;
+        minFuzzAmount[tokenAddrs["DAI"]] = 1_000e18;
+        maxFuzzAmount[tokenAddrs["crvUSD"]] = 1_000_000e18;
+        minFuzzAmount[tokenAddrs["crvUSD"]] = 1_000e18;
     }
 
     function _createAuction(
@@ -282,7 +274,7 @@ contract Setup is ExtendedTest, IEvents {
         }
         return false;
     }
-    
+
     /**
      * @notice Mock Chainlink Oracle responses to prevent "price too old" errors during testing
      * @dev This function mocks the Chainlink oracle to return the latest price data
@@ -295,25 +287,27 @@ contract Setup is ExtendedTest, IEvents {
         (
             uint80 roundId,
             int256 answer,
-            uint256 startedAt,
-            ,  // updatedAt - we'll replace this
+            uint256 startedAt, // updatedAt - we'll replace this
+            ,
             uint80 answeredInRound
         ) = AggregatorV3Interface(oracle).latestRoundData();
-        
+
         // Mock the latestRoundData function to always return fresh data
         vm.mockCall(
             oracle,
-            abi.encodeWithSelector(AggregatorV3Interface.latestRoundData.selector),
+            abi.encodeWithSelector(
+                AggregatorV3Interface.latestRoundData.selector
+            ),
             abi.encode(
-                roundId, 
-                answer, 
-                startedAt, 
+                roundId,
+                answer,
+                startedAt,
                 block.timestamp, // Keep the updatedAt timestamp current
                 answeredInRound
             )
         );
     }
-    
+
     /**
      * @notice Mock dYFI price feed oracles needed for the tests
      * @dev This function mocks the Chainlink oracles used in the dYFI strategy
