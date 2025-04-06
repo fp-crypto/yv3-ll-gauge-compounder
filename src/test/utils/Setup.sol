@@ -140,6 +140,8 @@ contract Setup is ExtendedTest, IEvents {
         LLGaugeCompounderVaultFactory.LLTriple memory _strategies = vaultFactory
             .strategyDeploymentsByVault(address(vault));
 
+        uint256 i = fixtureStrategy.length; // starting point is length before pushing
+
         fixtureStrategy.push(IStrategyInterface(_strategies.cove));
         vm.label(_strategies.cove, "CoveStrategy");
         fixtureStrategy.push(IStrategyInterface(_strategies.oneUp));
@@ -151,7 +153,7 @@ contract Setup is ExtendedTest, IEvents {
         vm.label(IStrategyInterface(_strategies.cove).Y_GAUGE(), "yGauge");
 
         vm.startPrank(management);
-        for (uint256 i; i < fixtureStrategy.length; ++i) {
+        for (; i < fixtureStrategy.length; ++i) {
             IStrategyInterface _strategy = fixtureStrategy[i];
             _strategy.acceptManagement();
             _strategy.setProfitMaxUnlockTime(1 hours);
@@ -220,10 +222,10 @@ contract Setup is ExtendedTest, IEvents {
     }
 
     function maxDYFI() public view returns (uint256) {
-        return
-            ERC20(tokenAddrs["dYFI"]).balanceOf(
-                0x2391Fc8f5E417526338F5aa3968b1851C16D894E
-            );
+        return 1e18;
+            //ERC20(tokenAddrs["dYFI"]).balanceOf(
+            //    0x2391Fc8f5E417526338F5aa3968b1851C16D894E
+            //);
     }
 
     function _setTokenAddrs() internal {

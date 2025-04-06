@@ -687,7 +687,6 @@ contract OperationTest is Setup {
 
         // Airdrop more dYFI to exceed the threshold
         airdropDYFI(address(strategy), threshold);
-        uint256 totalDYfi = smallReward + threshold;
 
         // Mock dYFI price feeds before reporting again
         mockDYfiPriceFeeds();
@@ -738,9 +737,6 @@ contract OperationTest is Setup {
         // Stake the assets to ensure they're in the gauge
         vm.prank(keeper);
         strategy.tend();
-
-        // Calculate expected maximum withdrawable amount after staking
-        address yGauge = strategy.Y_GAUGE();
 
         // Access internal vaultsMaxWithdraw implementation
         uint256 maxWithdraw = strategy.vaultsMaxWithdraw();
