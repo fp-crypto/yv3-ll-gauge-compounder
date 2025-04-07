@@ -214,8 +214,8 @@ abstract contract BaseLLGaugeCompounderStrategy is
         require(msg.sender == address(dYFIHelper.BALANCER_VAULT), "!balancer");
         require(flashLoanEnabled, "!enabled"); // Prevent unauthorized flash loan calls
         require(feeAmounts.length == 1 && feeAmounts[0] == 0, "fee");
-        dYFIHelper.flashloanLogic(userData);
         flashLoanEnabled = false; // Reset flag immediately after use
+        dYFIHelper.flashloanLogic(userData);
     }
 
     /// @notice Enables flash loan capability for a single transaction
