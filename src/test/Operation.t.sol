@@ -494,7 +494,7 @@ contract OperationTest is Setup {
         vm.mockCall(
             address(dYFIHelper.DYFI_REDEEMER),
             dYFIHelper.DYFI_REDEEMER.eth_required.selector,
-            abi.encode(type(uint256).max)
+            abi.encode(type(uint128).max) // very large number, but won't easily overflow
         );
 
         // Mock dYFI price feeds after skipping time but before reporting

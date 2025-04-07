@@ -6,7 +6,6 @@ import {ICurvePool} from "../interfaces/ICurvePool.sol";
 import {IDYFIRedeemer} from "../interfaces/IDYFIRedeemer.sol";
 import {IBaseLLGaugeCompounderStrategy} from "../interfaces/IBaseLLGaugeCompounderStrategy.sol";
 import {IWETH} from "../interfaces/IWETH.sol";
-
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title dYFI Helper Library
@@ -36,6 +35,9 @@ library dYFIHelper {
     IDYFIRedeemer public constant DYFI_REDEEMER =
         IDYFIRedeemer(0x7dC3A74F0684fc026f9163C6D5c3C99fda2cf60a);
 
+    uint256 private constant DYFI_REDEEMER_SLIPPAGE_TOLERANCE = 3;
+    uint256 private constant DYFI_REDEEMER_SLIPPAGE_DENOMINATOR = 1000;
+
     /// @notice Converts dYFI tokens to WETH using the most profitable path
     /// @dev Compares direct Curve swap vs redeeming for YFI and then swapping
     /// @return _wethAmount Amount of WETH received from the conversion
@@ -55,6 +57,9 @@ library dYFIHelper {
         uint256 amountOutSwap = CURVE_DYFI_ETH.get_dy(0, 1, _dyfiAmount);
 
         uint256 ethRequired = DYFI_REDEEMER.eth_required(_dyfiAmount);
+        ethRequired -=
+            (ethRequired * DYFI_REDEEMER_SLIPPAGE_TOLERANCE) /
+            DYFI_REDEEMER_SLIPPAGE_DENOMINATOR;
         uint256 amountOutYfiEth = CURVE_YFI_ETH.get_dy(1, 0, _dyfiAmount);
         uint256 amountOutRedeem;
         if (amountOutYfiEth > ethRequired) {
@@ -72,6 +77,7 @@ library dYFIHelper {
             bytes memory userData = abi.encode(_dyfiAmount, ethRequired);
 
             // Execute flashLoan
+            // Enable the flash loan capability just before invoking it
             IBaseLLGaugeCompounderStrategy(address(this)).setFlashLoanEnabled();
             BALANCER_VAULT.flashLoan(address(this), tokens, amounts, userData);
 
