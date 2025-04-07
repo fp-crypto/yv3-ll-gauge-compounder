@@ -381,9 +381,8 @@ contract StrategyAprOracle is AprOracleBase {
         }
 
         // Return the better of the two paths
-        return (amountOutRedeem > amountOutSwap)
-            ? amountOutRedeem
-            : amountOutSwap;
+        return
+            (amountOutRedeem > amountOutSwap) ? amountOutRedeem : amountOutSwap;
     }
 
     /**
@@ -463,10 +462,10 @@ contract StrategyAprOracle is AprOracleBase {
         //   realBalance
         // )
         uint256 boostedBalance = (component1 + component3) / BOOST_DENOMINATOR;
-        
+
         // Ensure boosted balance never exceeds real balance
         boostedBalance = Math.min(boostedBalance, _gaugeAmount);
-        
+
         // Calculate and return the boost factor (as WAD percentage)
         return (boostedBalance * WAD) / _gaugeAmount;
     }

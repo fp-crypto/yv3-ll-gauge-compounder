@@ -2,7 +2,6 @@
 pragma solidity ^0.8.18;
 
 interface ICurvePool {
-
     // Overloaded exchange functions
     /// @notice Exchange tokens using WETH by default.
     /// @param i Index of the input token.

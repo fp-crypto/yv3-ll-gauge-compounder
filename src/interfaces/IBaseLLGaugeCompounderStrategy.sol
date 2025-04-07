@@ -18,7 +18,7 @@ interface IBaseLLGaugeCompounderStrategy is
     function Y_GAUGE() external view returns (address);
 
     function Y_GAUGE_SHARE_HOLDER() external view returns (address);
-    
+
     function LOCKER_TYPE_HASH() external view returns (bytes32);
 
     /// @notice The parent allocator vault that distributes funds between LL strategies
@@ -66,6 +66,8 @@ interface IBaseLLGaugeCompounderStrategy is
         bytes calldata userData
     ) external;
 
+    /// @notice Enables flash loan capability for a single transaction
+    /// @dev Security control that can only be called by the contract itself
     function setFlashLoanEnabled() external;
 
     /*//////////////////////////////////////////////////////////////

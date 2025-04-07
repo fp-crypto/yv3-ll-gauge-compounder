@@ -9,11 +9,7 @@ interface IRegistry {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event Register(
-        address indexed gauge,
-        address indexed ygauge,
-        uint256 idx
-    );
+    event Register(address indexed gauge, address indexed ygauge, uint256 idx);
 
     event Deregister(
         address indexed gauge,
@@ -21,15 +17,9 @@ interface IRegistry {
         uint256 indexed idx
     );
 
-    event NewIndex(
-        uint256 indexed old_idx,
-        uint256 new_idx
-    );
+    event NewIndex(uint256 indexed old_idx, uint256 new_idx);
 
-    event Disable(
-        address indexed ygauge,
-        bool disabled
-    );
+    event Disable(address indexed ygauge, bool disabled);
 
     event SetRegistrar(address registrar);
     event PendingManagement(address management);

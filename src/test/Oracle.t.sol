@@ -21,14 +21,17 @@ contract OracleTest is Setup {
         console.log("currentApr: %e", currentApr);
         console.log("baseApr: %e", oracle.baseApr(_strategy, 0));
         console.log("dyfiApr: %e", oracle.dyfiApr(_strategy, 0));
-        
+
         // Debug additional information
         address strategyAsset = address(IStrategyInterface(_strategy).asset());
         uint256 totalAssets = IStrategyInterface(_strategy).totalAssets();
         console.log("totalAssets: %e", totalAssets);
         console.log("Asset address: %s", strategyAsset);
-        console.log("Is stable: %s", oracle.isStable(strategyAsset) ? "true" : "false");
-        
+        console.log(
+            "Is stable: %s",
+            oracle.isStable(strategyAsset) ? "true" : "false"
+        );
+
         // Should be greater than 0 but likely less than 100%
         assertGt(currentApr, 0, "ZERO");
         assertLt(currentApr, 1e18, "+100%");
