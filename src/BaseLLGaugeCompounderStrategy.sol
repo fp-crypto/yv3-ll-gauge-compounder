@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.28;
 
 import {dYFIHelper} from "./libraries/dYFIHelper.sol";
 import {IGauge} from "./interfaces/veyfi/IGauge.sol";
@@ -63,7 +63,9 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     bytes32 public immutable LOCKER_TYPE_HASH;
 
-    bool transient flashLoanEnabled;
+    /// @notice Transient flag to control flash loan access
+    /// @dev Only enabled during legitimate flash loan operations to prevent unauthorized calls
+    bool private transient flashLoanEnabled;
 
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
@@ -210,12 +212,15 @@ abstract contract BaseLLGaugeCompounderStrategy is
         bytes calldata userData
     ) external {
         require(msg.sender == address(dYFIHelper.BALANCER_VAULT), "!balancer");
-        require(flashLoanEnabled, "!enabled");
+        require(flashLoanEnabled, "!enabled"); // Prevent unauthorized flash loan calls
         require(feeAmounts.length == 1 && feeAmounts[0] == 0, "fee");
         dYFIHelper.flashloanLogic(userData);
-        flashLoanEnabled = false;
+        flashLoanEnabled = false; // Reset flag immediately after use
     }
 
+    /// @notice Enables flash loan capability for a single transaction
+    /// @dev Security control that can only be called by the contract itself
+    ///      Acts as a circuit breaker to prevent unauthorized flash loans
     function setFlashLoanEnabled() external {
         require(msg.sender == address(this), "!me");
         flashLoanEnabled = true;
