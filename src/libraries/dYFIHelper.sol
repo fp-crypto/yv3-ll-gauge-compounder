@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import {IBalancerVault} from "../interfaces/IBalancerVault.sol";
 import {ICurvePool} from "../interfaces/ICurvePool.sol";
 import {IDYFIRedeemer} from "../interfaces/IDYFIRedeemer.sol";
+import {IBaseLLGaugeCompounderStrategy} from "../interfaces/IBaseLLGaugeCompounderStrategy.sol";
 import {IWETH} from "../interfaces/IWETH.sol";
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -70,7 +71,8 @@ library dYFIHelper {
             // Encode the dYFI amount for the callback
             bytes memory userData = abi.encode(_dyfiAmount, ethRequired);
 
-            // Execute flash loan
+            // Execute flashLoan
+            IBaseLLGaugeCompounderStrategy(address(this)).setFlashLoanEnabled();
             BALANCER_VAULT.flashLoan(address(this), tokens, amounts, userData);
 
             _wethAmount = amountOutRedeem;

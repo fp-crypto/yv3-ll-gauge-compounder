@@ -66,6 +66,8 @@ interface IBaseLLGaugeCompounderStrategy is
         bytes calldata userData
     ) external;
 
+    function setFlashLoanEnabled() external;
+
     /*//////////////////////////////////////////////////////////////
                          MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/

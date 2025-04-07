@@ -63,6 +63,8 @@ abstract contract BaseLLGaugeCompounderStrategy is
 
     bytes32 public immutable LOCKER_TYPE_HASH;
 
+    bool transient flashLoanEnabled;
+
     /// @notice Initializes the strategy with vault parameters and Uniswap settings
     /// @param _yGauge Address of the yearn gauge
     /// @param _lockerName Name of the liquid locker
@@ -208,8 +210,15 @@ abstract contract BaseLLGaugeCompounderStrategy is
         bytes calldata userData
     ) external {
         require(msg.sender == address(dYFIHelper.BALANCER_VAULT), "!balancer");
+        require(flashLoanEnabled, "!enabled");
         require(feeAmounts.length == 1 && feeAmounts[0] == 0, "fee");
         dYFIHelper.flashloanLogic(userData);
+        flashLoanEnabled = false;
+    }
+
+    function setFlashLoanEnabled() external {
+        require(msg.sender == address(this), "!me");
+        flashLoanEnabled = true;
     }
 
     /// @notice Sets whether deposits are open to all addresses or restricted to the parent vault

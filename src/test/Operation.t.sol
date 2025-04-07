@@ -6,6 +6,7 @@ import {Setup, ERC20, IStrategyInterface, IStrategy} from "./utils/Setup.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {dYFIHelper} from "../libraries/dYFIHelper.sol";
 import {IAuction} from "../interfaces/IAuction.sol";
+import {IBalancerVault} from "../interfaces/IBalancerVault.sol";
 
 contract OperationTest is Setup {
     function setUp() public virtual override {
@@ -853,10 +854,53 @@ contract OperationTest is Setup {
         feeAmounts[0] = 100; // Non-zero fee
         bytes memory userData = "";
 
+        vm.prank(address(strategy));
+        strategy.setFlashLoanEnabled();
+
         // Mock call from Balancer Vault address
-        vm.prank(balancerVault);
+        vm.startPrank(balancerVault);
         vm.expectRevert(bytes("fee"));
         strategy.receiveFlashLoan(tokens, amounts, feeAmounts, userData);
+        vm.stopPrank();
+    }
+
+    function test_receiveFlashLoan_revertNoDidNotInvoke(
+        IStrategyInterface strategy,
+        address caller
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        vm.assume(caller != address(strategy));
+        airdropDYFI(address(strategy), maxDYFI());
+
+        // Find the Balancer Vault address
+        IBalancerVault balancerVault = IBalancerVault(
+            0xBA12222222228d8Ba445958a75a0704d566BF2C8
+        ); // Balancer Vault address
+
+        // Set up mock data with non-zero fees
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(strategy.WETH());
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1e18;
+        bytes memory userData = "";
+
+        vm.startPrank(caller);
+        vm.expectRevert(bytes("!enabled"));
+        balancerVault.flashLoan(address(strategy), tokens, amounts, "");
+        vm.stopPrank();
+    }
+
+    function test_setFlashLoanEnabled_validation(
+        IStrategyInterface strategy,
+        address caller
+    ) public {
+        vm.assume(_isFixtureStrategy(strategy));
+        vm.assume(caller != address(strategy));
+
+        vm.startPrank(caller);
+        vm.expectRevert(bytes("!me"));
+        strategy.setFlashLoanEnabled();
+        vm.stopPrank();
     }
 
     function test_setAuction_validation(IStrategyInterface strategy) public {
