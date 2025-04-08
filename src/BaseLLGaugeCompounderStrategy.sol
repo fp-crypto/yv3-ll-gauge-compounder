@@ -285,8 +285,10 @@ abstract contract BaseLLGaugeCompounderStrategy is
     function setAuction(address _auction) external onlyManagement {
         if (_auction != address(0)) {
             require(IAuction(_auction).want() == address(asset), "!want");
+            address receiver = IAuction(_auction).receiver();
             require(
-                IAuction(_auction).receiver() == address(this),
+                receiver == address(this) ||
+                    (!openDeposits && receiver == PARENT_VAULT),
                 "!receiver"
             );
         }
