@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 import "forge-std/console.sol";
 import {Setup, ERC20, IStrategyInterface} from "./utils/Setup.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {StrategyAprOracle} from "../periphery/StrategyAprOracle.sol";
+import {LLGaugeCompounderStrategyAprOracle as StrategyAprOracle} from "../periphery/StrategyAprOracle.sol";
 
 contract OracleTest is Setup {
     StrategyAprOracle public oracle;

@@ -22,7 +22,7 @@ import {AggregatorV3Interface} from "../interfaces/chainlink/AggregatorV3Interfa
  *      3. Liquid locker performance fees
  *      4. Token price conversion via Curve, Uniswap, or Chainlink
  */
-contract StrategyAprOracle is AprOracleBase {
+contract LLGaugeCompounderStrategyAprOracle is AprOracleBase {
     /*//////////////////////////////////////////////////////////////
                            GLOBAL CONSTANTS
     //////////////////////////////////////////////////////////////*/
@@ -59,6 +59,13 @@ contract StrategyAprOracle is AprOracleBase {
     /// @notice The Uniswap V3 Router contract address used for swap simulations
     address private constant UNISWAP_V3_ROUTER =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
+        
+    /// @notice Chainlink ETH/USD price feed address
+    address public constant ETH_USD_CHAINLINK_FEED =
+        0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+
+    /// @notice Protocol APR oracle address
+    address public constant APR_ORACLE = 0x1981AD9F44F2EA9aDd2dC4AD7D075c102C70aF92;
 
     /*//////////////////////////////////////////////////////////////
                           STORAGE VARIABLES
@@ -71,13 +78,6 @@ contract StrategyAprOracle is AprOracleBase {
     /// @notice Mapping to store performance fees for different liquid locker types
     /// @dev Fees are expressed as percentage * 1e18 (e.g., 15% = 15 * 1e16)
     mapping(bytes32 => uint256) public performanceFeeByType;
-
-    /// @notice Chainlink ETH/USD price feed address
-    address public ethUsdChainlinkFeed =
-        0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
-
-    /// @notice Base APR oracle address
-    address public aprOracle = 0x1981AD9F44F2EA9aDd2dC4AD7D075c102C70aF92;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -120,7 +120,7 @@ contract StrategyAprOracle is AprOracleBase {
         address _strategy,
         int256 _delta
     ) public view returns (uint256 _apr) {
-        _apr = AprOracle(aprOracle).getStrategyApr(
+        _apr = AprOracle(APR_ORACLE).getStrategyApr(
             IBaseLLGaugeCompounderStrategy(_strategy).vault(),
             _delta
         );
@@ -338,11 +338,11 @@ contract StrategyAprOracle is AprOracleBase {
         address _strategyAsset
     ) internal view returns (uint256) {
         // Get ETH price in USD from Chainlink
-        (, int256 price, , , ) = AggregatorV3Interface(ethUsdChainlinkFeed)
+        (, int256 price, , , ) = AggregatorV3Interface(ETH_USD_CHAINLINK_FEED)
             .latestRoundData();
         require(price > 0, "Invalid ETH price");
 
-        uint256 oracleDecimals = AggregatorV3Interface(ethUsdChainlinkFeed)
+        uint256 oracleDecimals = AggregatorV3Interface(ETH_USD_CHAINLINK_FEED)
             .decimals();
 
         // Convert the WETH value to USD using Chainlink price
@@ -366,7 +366,7 @@ contract StrategyAprOracle is AprOracleBase {
      * @param _dyfiAmount Amount of dYFI to convert
      * @return WETH amount after conversion
      */
-    function dyfiToWeth(uint256 _dyfiAmount) public view returns (uint256) {
+    function dyfiToWeth(uint256 _dyfiAmount) private view returns (uint256) {
         if (_dyfiAmount == 0) return 0;
 
         // Path 1: Direct swap via Curve dYFI/ETH pool
