@@ -373,17 +373,21 @@ contract LLGaugeCompounderStrategyAprOracle is AprOracleBase {
         uint256 amountOutSwap = CURVE_DYFI_ETH.get_dy(0, 1, _dyfiAmount);
 
         // Path 2: Redeem dYFI for YFI and then swap YFI for ETH
-        uint256 ethRequired = DYFI_REDEEMER.eth_required(_dyfiAmount);
-        uint256 amountOutYfiEth = CURVE_YFI_ETH.get_dy(1, 0, _dyfiAmount);
         uint256 amountOutRedeem;
-        if (amountOutYfiEth > ethRequired) {
-            amountOutRedeem = amountOutYfiEth - ethRequired;
+        try DYFI_REDEEMER.eth_required(_dyfiAmount) returns (uint256 ethRequired) {
+            uint256 amountOutYfiEth = CURVE_YFI_ETH.get_dy(1, 0, _dyfiAmount);
+            if (amountOutYfiEth > ethRequired) {
+                amountOutRedeem = amountOutYfiEth - ethRequired;
+            }
+        } catch {
+            amountOutRedeem = 0;
         }
 
         // Return the better of the two paths
         return
             (amountOutRedeem > amountOutSwap) ? amountOutRedeem : amountOutSwap;
     }
+
 
     /**
      * @notice Simulates a Uniswap V3 swap from WETH to a target asset
